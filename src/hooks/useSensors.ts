@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Accelerometer, Gyroscope } from 'expo-sensors';
-import type { ThreeAxisMeasurement } from 'expo-sensors';
+
+type ThreeAxisMeasurement = { x: number; y: number; z: number };
 
 export interface SensorData {
   // Accelerometer (g-force units)

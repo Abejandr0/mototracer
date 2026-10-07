@@ -57,7 +57,7 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.background }}>
       <SafeAreaProvider>
-        <StatusBar style="light" backgroundColor={Colors.background} />
+        <StatusBar style="light" />
 
         {screen === 'dashboard' && (
           <DashboardScreen
