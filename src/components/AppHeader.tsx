@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors, Spacing } from '../theme';
+import { Colors, Spacing, Radius } from '../theme';
 
 interface HeaderProps {
   title?: string;
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     backgroundColor: Colors.cardElevated,
-    borderRadius: Radius_full,
+    borderRadius: Radius.full,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderWidth: 1,
@@ -99,5 +99,3 @@ const styles = StyleSheet.create({
   },
 });
 
-// Inline since we can't import Radius here due to circular dep
-const Radius_full = 999;

@@ -1,25 +1,45 @@
 {
   "expo": {
-    "name": "mototracer",
+    "name": "MotoTracer",
     "slug": "mototracer",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0D0F12",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "MotoTracer needs your location for GPS route tracking.",
+        "NSMotionUsageDescription": "MotoTracer uses motion sensors to detect lean angles and crash events."
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0D0F12",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.BODY_SENSORS",
+        "android.permission.VIBRATE"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-sensors",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "MotoTracer tracks your GPS route during rides."
+        }
+      ]
+    ]
   }
 }
