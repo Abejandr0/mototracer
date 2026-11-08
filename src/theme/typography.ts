@@ -17,10 +17,10 @@ export const Spacing = {
 
 // Border radii
 export const Radius = {
-  sm: 6,
-  md: 10,
-  lg: 14,
-  xl: 18,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 28,
   full: 999,
 } as const;
 

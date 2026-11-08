@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle, Line, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { Colors } from '../theme/colors';
 
@@ -14,21 +14,9 @@ export const LeanGauge: React.FC<LeanGaugeProps> = ({
   maxAngle = 60,
   size = 160,
 }) => {
-  const animAngle = useRef(new Animated.Value(angle)).current;
-
-  useEffect(() => {
-    Animated.spring(animAngle, {
-      toValue: angle,
-      tension: 80,
-      friction: 10,
-      useNativeDriver: false,
-    }).start();
-  }, [angle]);
-
   const cx = size / 2;
   const cy = size / 2;
   const outerR = size / 2 - 8;
-  const innerR = size / 2 - 20;
   const strokeWidth = 10;
   const circumference = 2 * Math.PI * outerR;
 

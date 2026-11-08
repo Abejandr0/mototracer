@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Circle, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { Colors } from '../theme/colors';
 
 interface SpeedometerProps {
@@ -22,7 +22,6 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
   const arcLength = circumference * arcFraction;
   const progress = Math.min(speed / maxSpeed, 1);
   const filled = arcLength * progress;
-  const empty = arcLength - filled;
 
   // Rotate so arc starts at bottom-left (150°) going clockwise
   const rotateAngle = 150;

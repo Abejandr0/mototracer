@@ -5,7 +5,7 @@ export const Colors = {
   // Backgrounds
   background: '#0D0F12',
   card: '#181B20',
-  cardElevated: '#1E2228',
+  cardElevated: '#22262E',
   surface: '#252A32',
 
   // Brand / Accent
@@ -15,14 +15,14 @@ export const Colors = {
   emergency: '#FF1744',        // red — crash / SOS
 
   // Text
-  textPrimary: '#FFFFFF',
-  textSecondary: '#8A909A',
-  textTertiary: '#545B68',
+  textPrimary: '#F5F7FA',
+  textSecondary: '#9DA5B4',
+  textTertiary: '#7C8496',
   textAccent: '#00E5FF',
 
   // Borders / Dividers
-  border: '#252A32',
-  borderSubtle: '#1E2228',
+  border: '#2F3540',
+  borderSubtle: '#2F3540',
 
   // Status
   warning: '#FFB300',
