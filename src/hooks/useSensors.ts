@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Accelerometer, Gyroscope } from 'expo-sensors';
+import type { Calibration, CrashSensitivity } from '../providers/AppProvider';
 
 type ThreeAxisMeasurement = { x: number; y: number; z: number };
 
@@ -18,8 +19,8 @@ export interface SensorData {
   isCrashDetected: boolean;
 }
 
-const CRASH_THRESHOLD = 3.5;   // g-force above this = potential crash
 const UPDATE_INTERVAL = 100;   // ms
+const CRASH_THRESHOLDS: Record<CrashSensitivity, number> = { low: 4.8, standard: 3.8, high: 3.0 };
 
 function computeLeanAngle(ax: number, ay: number, az: number): number {
   // Roll angle from accelerometer
@@ -28,7 +29,7 @@ function computeLeanAngle(ax: number, ay: number, az: number): number {
   return (roll * 180) / Math.PI;
 }
 
-export function useSensors(active: boolean = true) {
+export function useSensors(active: boolean = true, calibration?: Calibration, crashSensitivity: CrashSensitivity = 'standard', crashDetectionEnabled = true) {
   const [data, setData] = useState<SensorData>({
     ax: 0, ay: 0, az: 1,
     gx: 0, gy: 0, gz: 0,
@@ -41,20 +42,22 @@ export function useSensors(active: boolean = true) {
   const gyroRef = useRef<ThreeAxisMeasurement>({ x: 0, y: 0, z: 0 });
   const accelSubRef = useRef<ReturnType<typeof Accelerometer.addListener> | null>(null);
   const gyroSubRef = useRef<ReturnType<typeof Gyroscope.addListener> | null>(null);
+  const highAccelerationSamples = useRef(0);
 
   const update = useCallback(() => {
     const { x: ax, y: ay, z: az } = accelRef.current;
     const { x: gx, y: gy, z: gz } = gyroRef.current;
     const magnitude = Math.sqrt(ax * ax + ay * ay + az * az);
-    const lean = computeLeanAngle(ax, ay, az);
+    const lean = computeLeanAngle(ax, ay, az) - (calibration?.leanOffset ?? 0);
+    highAccelerationSamples.current = magnitude >= CRASH_THRESHOLDS[crashSensitivity] ? highAccelerationSamples.current + 1 : 0;
 
     setData({
       ax, ay, az, gx, gy, gz,
       leanAngle: lean,
       accelerationMagnitude: magnitude,
-      isCrashDetected: magnitude > CRASH_THRESHOLD,
+      isCrashDetected: crashDetectionEnabled && highAccelerationSamples.current >= 3,
     });
-  }, []);
+  }, [calibration?.leanOffset, crashSensitivity, crashDetectionEnabled]);
 
   useEffect(() => {
     if (!active) return;

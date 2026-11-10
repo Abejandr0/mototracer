@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Alert, AppState, Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { Colors } from '../theme';
@@ -7,6 +7,7 @@ import { useAppData } from '../providers/AppProvider';
 import { useSensors } from '../hooks/useSensors';
 import { Speedometer, LeanGauge } from '../components';
 import { Card, Header, Label, Page, screenStyles as s } from '../components/Screen';
+import { RIDE_LOCATION_TASK, takeBackgroundLocationQueue } from '../services/backgroundLocationTask';
 
 function formatTime(seconds: number) { const h = Math.floor(seconds / 3600); const m = Math.floor(seconds % 3600 / 60); const sec = seconds % 60; return h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`; }
 export default function RideScreen() {
@@ -14,12 +15,16 @@ export default function RideScreen() {
   const { ride, paused, startRide, updateLocation, updateRideLean, finishRide } = app;
   const rideId = ride?.id;
   const { width } = useWindowDimensions();
-  const sensor = useSensors(!app.paused);
+  const sensor = useSensors(!app.paused, app.calibration, app.crashSensitivity, app.crashDetectionEnabled);
   const [gps, setGps] = useState<'buscando' | 'listo' | 'sin permiso'>('buscando');
-  const [seconds, setSeconds] = useState(0);
+  const [backgroundLocation, setBackgroundLocation] = useState(false);
+  const [seconds, setSeconds] = useState(ride?.durationSec ?? 0);
   const fired = useRef(false);
   const leanRef = useRef(0);
+  const gForceRef = useRef(1);
+  const lastLocationTimestamp = useRef(0);
   useEffect(() => { leanRef.current = sensor.leanAngle; }, [sensor.leanAngle]);
+  useEffect(() => { gForceRef.current = sensor.accelerationMagnitude; }, [sensor.accelerationMagnitude]);
   useEffect(() => { if (!ride) startRide(); }, [ride, startRide]);
   useEffect(() => {
     if (!rideId || paused) return;
@@ -30,14 +35,50 @@ export default function RideScreen() {
       if (!mounted) return;
       if (permission.status !== 'granted') { setGps('sin permiso'); return; }
       setGps('listo');
+      const background = await Location.getBackgroundPermissionsAsync();
+      if (background.status === 'granted') setBackgroundLocation(true);
+      else Alert.alert('Registrar con pantalla bloqueada', 'MotoTracer puede continuar guardando la ruta si bloqueas el teléfono. Permite la ubicación en segundo plano para usar esa función.', [
+        { text: 'Ahora no', style: 'cancel' },
+        { text: 'Permitir', onPress: () => { void Location.requestBackgroundPermissionsAsync().then((result) => setBackgroundLocation(result.status === 'granted')).catch(() => setBackgroundLocation(false)); } },
+      ]);
       subscription = await Location.watchPositionAsync({ accuracy: Location.Accuracy.BestForNavigation, timeInterval: 1000, distanceInterval: 4 }, (location) => {
         const speed = location.coords.speed == null || location.coords.speed < 0 ? 0 : location.coords.speed * 3.6;
-        updateLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude, timestamp: location.timestamp, speed, lean: leanRef.current });
+        if (location.timestamp <= lastLocationTimestamp.current) return;
+        lastLocationTimestamp.current = location.timestamp;
+        updateLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude, timestamp: location.timestamp, speed, lean: leanRef.current, gForce: gForceRef.current, altitude: location.coords.altitude });
       });
     })().catch(() => mounted && setGps('sin permiso'));
     return () => { mounted = false; subscription?.remove(); };
   }, [rideId, paused, updateLocation]);
-  useEffect(() => { const startedAt = ride?.startTime; const id = setInterval(() => { if (startedAt) setSeconds(Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)); }, 1000); return () => clearInterval(id); }, [ride?.id, ride?.startTime]);
+  useEffect(() => {
+    if (!rideId || paused || !backgroundLocation) return;
+    const handleAppState = async (state: string) => {
+      if (state === 'background') {
+        try {
+          const started = await Location.hasStartedLocationUpdatesAsync(RIDE_LOCATION_TASK);
+          if (!started) await Location.startLocationUpdatesAsync(RIDE_LOCATION_TASK, {
+            accuracy: Location.Accuracy.BestForNavigation, timeInterval: 1000, distanceInterval: 4,
+            ...(Platform.OS === 'android' ? { foregroundService: { notificationTitle: 'MotoTracer está grabando', notificationBody: 'La ruta continúa registrándose mientras la pantalla está bloqueada.', notificationColor: '#FF5722' } } : {}),
+          });
+        } catch { /* A foreground GPS recording continues if the OS declines the background task. */ }
+      } else if (state === 'active') {
+        try {
+          if (await Location.hasStartedLocationUpdatesAsync(RIDE_LOCATION_TASK)) await Location.stopLocationUpdatesAsync(RIDE_LOCATION_TASK);
+          const queued = await takeBackgroundLocationQueue();
+          for (const point of queued) if (point.timestamp > lastLocationTimestamp.current) { lastLocationTimestamp.current = point.timestamp; updateLocation(point); }
+        } catch { /* Keep the foreground location watcher available. */ }
+      }
+    };
+    const subscription = AppState.addEventListener('change', (state) => { void handleAppState(state); });
+    if (AppState.currentState !== 'active') void handleAppState(AppState.currentState);
+    return () => subscription.remove();
+  }, [rideId, paused, backgroundLocation, updateLocation]);
+  useEffect(() => {
+    const baseDuration = ride?.durationSec ?? 0;
+    const startedAt = Date.now();
+    const id = setInterval(() => { setSeconds(baseDuration + (paused ? 0 : Math.floor((Date.now() - startedAt) / 1000))); }, 500);
+    return () => clearInterval(id);
+  }, [ride?.id, ride?.durationSec, paused]);
   useEffect(() => { updateRideLean(sensor.leanAngle); }, [sensor.leanAngle, updateRideLean]);
   useEffect(() => { if (sensor.isCrashDetected && !fired.current) { fired.current = true; router.replace('/sos?crash=1'); } if (!sensor.isCrashDetected) fired.current = false; }, [sensor.isCrashDetected]);
   const speed = ride?.coordinates.at(-1)?.speed ?? 0;

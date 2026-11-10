@@ -9,13 +9,14 @@ import { RouteMap } from '../../components/RouteMap';
 export default function HomeScreen() {
   const app = useAppData();
   const bike = app.vehicle;
+  const services = app.services.filter((record) => record.vehicleId === bike.id || (!record.vehicleId && bike.id === 'primary'));
   const lastRide = app.rides[0];
-  const oil = app.services.find((item) => /aceite|oil/i.test(item.title));
-  const chain = app.services.find((item) => /cadena|chain/i.test(item.title));
+  const oil = services.find((item) => /aceite|oil/i.test(item.title));
+  const chain = services.find((item) => /cadena|chain/i.test(item.title));
   const oilRemaining = oil ? Math.max(0, oil.odometer + bike.serviceInterval - bike.odometer) : null;
   const chainAge = chain ? Math.max(0, bike.odometer - chain.odometer) : null;
   return <Page>
-    <Header title="A rodar, Abe" subtitle="Tu moto y tus rutas, en un solo lugar." right={<Pressable onPress={() => router.push('/profile')}><Text style={{ color: Colors.activeTelemetry, fontWeight: '800' }}>ABE</Text></Pressable>} />
+    <Header title={`A rodar, ${app.riderName.split(' ')[0]}`} subtitle="Tu moto y tus rutas, en un solo lugar." right={<Pressable onPress={() => router.push('/profile')}><Text style={{ color: Colors.activeTelemetry, fontWeight: '800' }}>{app.riderName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</Text></Pressable>} />
     <Card style={{ padding: 16, overflow: 'hidden' }}>
       <View style={s.row}><View><Label>MOTOCICLETA ACTIVA</Label><Text style={{ color: Colors.textPrimary, fontSize: 17, fontWeight: '800', marginTop: 5 }}>{bike.make} {bike.model}</Text></View><Link href="/garage" asChild><Pressable style={{ backgroundColor: Colors.cardElevated, borderRadius: 24, padding: 10 }}><Text style={{ color: Colors.textSecondary }}>⌄</Text></Pressable></Link></View>
       <Image source={require('../../../assets/suzuki-gixxer.png')} resizeMode="contain" style={{ width: '100%', height: 122, backgroundColor: '#13191C', borderRadius: 10 }} />

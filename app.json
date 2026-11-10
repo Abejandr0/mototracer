@@ -4,7 +4,7 @@
     "slug": "mototracer",
     "version": "1.0.0",
     "scheme": "mototracer",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0D0F12",
@@ -13,6 +13,7 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "MotoTracer usa tu ubicación para grabar rutas mientras la rodada está abierta.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "MotoTracer puede continuar registrando tu ruta si bloqueas la pantalla durante la rodada.",
         "NSMotionUsageDescription": "MotoTracer usa los sensores de movimiento para medir inclinación y detectar impactos."
       }
     },
@@ -38,14 +39,32 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "MotoTracer usa tu ubicación para grabar rutas mientras la rodada está abierta."
+          "locationWhenInUsePermission": "MotoTracer usa tu ubicación para grabar rutas mientras la rodada está abierta.",
+          "locationAlwaysAndWhenInUsePermission": "MotoTracer puede continuar registrando tu ruta si bloqueas la pantalla durante la rodada.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MotoTracer necesita acceso a tus fotos para añadir imágenes a tu perfil y a tus motos."
+        }
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "79a3f840-afbf-4db2-875d-c3ed97d90e94"
+      }
+    },
+    "owner": "abejandro"
   }
 }
