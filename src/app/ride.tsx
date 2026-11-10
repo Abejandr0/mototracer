@@ -70,7 +70,7 @@ export default function RideScreen() {
       }
     };
     const subscription = AppState.addEventListener('change', (state) => { void handleAppState(state); });
-    if (AppState.currentState !== 'active') void handleAppState(AppState.currentState);
+    if (AppState.currentState && AppState.currentState !== 'active') void handleAppState(AppState.currentState);
     return () => subscription.remove();
   }, [rideId, paused, backgroundLocation, updateLocation]);
   useEffect(() => {
