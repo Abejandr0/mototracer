@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Accelerometer, Gyroscope } from 'expo-sensors';
 import type { Calibration, CrashSensitivity } from '../providers/AppProvider';
+import { detectImpact } from '../services/crashDetection';
 
 type ThreeAxisMeasurement = { x: number; y: number; z: number };
 
@@ -20,7 +21,6 @@ export interface SensorData {
 }
 
 const UPDATE_INTERVAL = 100;   // ms
-const CRASH_THRESHOLDS: Record<CrashSensitivity, number> = { low: 4.8, standard: 3.8, high: 3.0 };
 
 function computeLeanAngle(ax: number, ay: number, az: number): number {
   // Roll angle from accelerometer
@@ -49,18 +49,19 @@ export function useSensors(active: boolean = true, calibration?: Calibration, cr
     const { x: gx, y: gy, z: gz } = gyroRef.current;
     const magnitude = Math.sqrt(ax * ax + ay * ay + az * az);
     const lean = computeLeanAngle(ax, ay, az) - (calibration?.leanOffset ?? 0);
-    highAccelerationSamples.current = magnitude >= CRASH_THRESHOLDS[crashSensitivity] ? highAccelerationSamples.current + 1 : 0;
+    const impact = detectImpact(magnitude, crashSensitivity, highAccelerationSamples.current);
+    highAccelerationSamples.current = impact.highSamples;
 
     setData({
       ax, ay, az, gx, gy, gz,
       leanAngle: lean,
       accelerationMagnitude: magnitude,
-      isCrashDetected: crashDetectionEnabled && highAccelerationSamples.current >= 3,
+      isCrashDetected: crashDetectionEnabled && impact.detected,
     });
   }, [calibration?.leanOffset, crashSensitivity, crashDetectionEnabled]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active) { highAccelerationSamples.current = 0; return; }
 
     Accelerometer.setUpdateInterval(UPDATE_INTERVAL);
     Gyroscope.setUpdateInterval(UPDATE_INTERVAL);

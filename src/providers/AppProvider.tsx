@@ -4,18 +4,19 @@ import { AppState } from 'react-native';
 import * as Network from 'expo-network';
 import { useAuth } from './AuthProvider';
 import { supabase } from '../services/supabase';
+import { distanceMeters } from '../services/rideTelemetry';
 
-export type Coordinate = { latitude: number; longitude: number; timestamp: number; speed: number; lean: number; gForce?: number; altitude?: number | null };
+export type Coordinate = { latitude: number; longitude: number; timestamp: number; speed: number; lean: number; gForce?: number; altitude?: number | null; breakBefore?: boolean };
 export type Ride = {
   id: string; title: string; startTime: string; endTime?: string; distanceKm: number;
   durationSec: number; maxSpeed: number; avgSpeed: number; maxLeanLeft: number;
   maxLeanRight: number; coordinates: Coordinate[]; speedSamples: number[]; speedSum: number; speedCount: number;
-  pausedAt?: number; pausedDurationMs: number; vehicleId?: string; comparisonRideId?: string; comparisonSnapshot?: Ride; remoteId?: string; isPublic?: boolean;
+  pausedAt?: number; resumeAt?: number; pausedDurationMs: number; vehicleId?: string; comparisonRideId?: string; comparisonSnapshot?: Ride; remoteId?: string; isPublic?: boolean;
 };
 export type Vehicle = { id: string; make: string; model: string; year: string; odometer: number; serviceInterval: number; photoUri?: string; odometerPhotoUri?: string };
 export type ServiceRecord = { id: string; title: string; date: string; odometer: number; note: string; vehicleId?: string; cost?: number; workshop?: string; intervalKm?: number };
 export type OdometerEntry = { id: string; vehicleId: string; odometer: number; photoUri: string; recordedAt: string };
-export type EmergencyContact = { id: string; name: string; phone: string };
+export type EmergencyContact = { id: string; name: string; phone: string; relation?: string };
 export type CrashSensitivity = 'low' | 'standard' | 'high';
 export type Calibration = { leanOffset: number; gx: number; gy: number; gz: number; calibratedAt: string | null };
 type AppData = { rides: Ride[]; vehicles: Vehicle[]; vehicle: Vehicle; services: ServiceRecord[]; odometerEntries: OdometerEntry[]; contacts: EmergencyContact[]; ride: Ride | null; paused: boolean; crashSensitivity: CrashSensitivity; crashDetectionEnabled: boolean; calibration: Calibration; riderName: string; profilePhotoUri: string | null; profileComplete: boolean; riderBio: string; riderCity: string };
@@ -26,6 +27,7 @@ type AppContextValue = AppData & {
   updateVehicle: (vehicle: Vehicle) => void; addVehicle: (vehicle: Omit<Vehicle, 'id'>) => void; deleteVehicle: (id: string) => void; selectVehicle: (id: string) => void;
   addOdometerEntry: (entry: Omit<OdometerEntry, 'id' | 'recordedAt'>) => void;
   addContact: (contact: Omit<EmergencyContact, 'id'>) => void;
+  updateContact: (contact: EmergencyContact) => void;
   deleteContact: (id: string) => void;
   updateRideLean: (lean: number) => void;
   updateCalibration: (calibration: Calibration) => void; updateCrashSettings: (enabled: boolean, sensitivity: CrashSensitivity) => void; updateRiderName: (name: string) => void;
@@ -158,7 +160,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
   const pauseRide = useCallback(() => setData((current) => {
     if (!current.ride) return current;
     const now = Date.now();
-    const ride = current.paused ? { ...current.ride, pausedAt: undefined, pausedDurationMs: current.ride.pausedDurationMs + Math.max(0, now - (current.ride.pausedAt ?? now)) }
+    const ride = current.paused ? { ...current.ride, pausedAt: undefined, resumeAt: now, pausedDurationMs: current.ride.pausedDurationMs + Math.max(0, now - (current.ride.pausedAt ?? now)) }
       : { ...current.ride, pausedAt: now };
     return { ...current, ride, paused: !current.paused };
   }), []);
@@ -167,25 +169,24 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       if (!current.ride || current.paused) return current;
       const points = current.ride.coordinates;
       const previous = points[points.length - 1];
+      const resumed = Boolean(previous && current.ride.resumeAt && point.timestamp >= current.ride.resumeAt);
       let addedKm = 0;
-      if (previous) {
-        const toRad = (n: number) => n * Math.PI / 180;
-        const dLat = toRad(point.latitude - previous.latitude);
-        const dLon = toRad(point.longitude - previous.longitude);
-        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(previous.latitude)) * Math.cos(toRad(point.latitude)) * Math.sin(dLon / 2) ** 2;
-        addedKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        if (addedKm > 0.15) return current; // Reject isolated GPS jumps without drawing a false map segment.
+      if (previous && !resumed) {
+        addedKm = distanceMeters(previous, point) / 1000;
+        const elapsedSeconds = Math.max(1, (point.timestamp - previous.timestamp) / 1000);
+        if (addedKm > Math.max(.15, elapsedSeconds * .07)) return current;
       }
-      const nextPoints = [...points, point];
+      const nextPoints = [...points, resumed ? { ...point, breakBefore: true } : point];
       const speeds = [...current.ride.speedSamples, point.speed].slice(-600);
       const speedSum = current.ride.speedSum + point.speed;
       const speedCount = current.ride.speedCount + 1;
-      const ride = { ...current.ride, coordinates: nextPoints, speedSamples: speeds,
+      const durationSec = Math.max(0, Math.floor((point.timestamp - new Date(current.ride.startTime).getTime() - current.ride.pausedDurationMs) / 1000));
+      const ride = { ...current.ride, resumeAt: resumed ? undefined : current.ride.resumeAt, coordinates: nextPoints, speedSamples: speeds,
         distanceKm: current.ride.distanceKm + addedKm,
         maxSpeed: Math.max(current.ride.maxSpeed, point.speed),
-        speedSum, speedCount, avgSpeed: speedCount ? speedSum / speedCount : 0,
+        speedSum, speedCount, avgSpeed: durationSec ? (current.ride.distanceKm + addedKm) / durationSec * 3600 : 0,
         maxLeanLeft: Math.min(current.ride.maxLeanLeft, point.lean), maxLeanRight: Math.max(current.ride.maxLeanRight, point.lean),
-        durationSec: Math.floor((point.timestamp - new Date(current.ride.startTime).getTime() - current.ride.pausedDurationMs) / 1000),
+        durationSec,
       };
       return { ...current, ride };
     });
@@ -213,6 +214,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
   const addOdometerEntry = useCallback((entry: Omit<OdometerEntry, 'id' | 'recordedAt'>) => setData((current) => ({ ...current, odometerEntries: [{ ...entry, id: `odometer-${Date.now()}`, recordedAt: new Date().toISOString() }, ...current.odometerEntries], vehicles: current.vehicles.map((item) => item.id === entry.vehicleId ? { ...item, odometer: entry.odometer, odometerPhotoUri: entry.photoUri } : item), vehicle: current.vehicle.id === entry.vehicleId ? { ...current.vehicle, odometer: entry.odometer, odometerPhotoUri: entry.photoUri } : current.vehicle })), []);
   const selectVehicle = useCallback((id: string) => setData((current) => ({ ...current, vehicle: current.vehicles.find((item) => item.id === id) ?? current.vehicle })), []);
   const addContact = useCallback((contact: Omit<EmergencyContact, 'id'>) => setData((current) => current.contacts.length >= 5 ? current : ({ ...current, contacts: [...current.contacts, { ...contact, id: `contact-${Date.now()}` }] })), []);
+  const updateContact = useCallback((contact: EmergencyContact) => setData((current) => ({ ...current, contacts: current.contacts.map((item) => item.id === contact.id ? contact : item) })), []);
   const deleteContact = useCallback((id: string) => setData((current) => ({ ...current, contacts: current.contacts.filter((contact) => contact.id !== id) })), []);
   const updateCalibration = useCallback((calibration: Calibration) => setData((current) => ({ ...current, calibration })), []);
   const updateCrashSettings = useCallback((crashDetectionEnabled: boolean, crashSensitivity: CrashSensitivity) => setData((current) => ({ ...current, crashDetectionEnabled, crashSensitivity })), []);
@@ -234,7 +236,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     await AsyncStorage.setItem(`${STORAGE_KEY}.imported.${userId}`, '1');
     setLegacyAvailable(false);
   }, [session?.user.id]);
-  const value = useMemo(() => ({ ...data, ready, syncStatus, syncError, retrySync, legacyAvailable, importLegacyData, startRide, pauseRide, finishRide, updateLocation, updateRideLean, addService, renameRide, updateVehicle, addVehicle, deleteVehicle, selectVehicle, addOdometerEntry, addContact, deleteContact, updateCalibration, updateCrashSettings, updateRiderName, linkRemoteRide, updateProfilePhoto, completeProfile }), [data, ready, syncStatus, syncError, retrySync, legacyAvailable, importLegacyData, startRide, pauseRide, finishRide, updateLocation, updateRideLean, addService, renameRide, updateVehicle, addVehicle, deleteVehicle, selectVehicle, addOdometerEntry, addContact, deleteContact, updateCalibration, updateCrashSettings, updateRiderName, linkRemoteRide, updateProfilePhoto, completeProfile]);
+  const value = useMemo(() => ({ ...data, ready, syncStatus, syncError, retrySync, legacyAvailable, importLegacyData, startRide, pauseRide, finishRide, updateLocation, updateRideLean, addService, renameRide, updateVehicle, addVehicle, deleteVehicle, selectVehicle, addOdometerEntry, addContact, updateContact, deleteContact, updateCalibration, updateCrashSettings, updateRiderName, linkRemoteRide, updateProfilePhoto, completeProfile }), [data, ready, syncStatus, syncError, retrySync, legacyAvailable, importLegacyData, startRide, pauseRide, finishRide, updateLocation, updateRideLean, addService, renameRide, updateVehicle, addVehicle, deleteVehicle, selectVehicle, addOdometerEntry, addContact, updateContact, deleteContact, updateCalibration, updateCrashSettings, updateRiderName, linkRemoteRide, updateProfilePhoto, completeProfile]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 

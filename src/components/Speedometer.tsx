@@ -79,7 +79,7 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
         <Text style={[styles.speedValue, { color: speedColor }]}>
           {Math.round(speed)}
         </Text>
-        <Text style={styles.speedUnit}>KM/H</Text>
+        <Text style={[styles.speedUnit, { color: Colors.textSecondary }]}>KM/H</Text>
       </View>
     </View>
   );

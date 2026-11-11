@@ -1,3 +1,4 @@
+import { usePreferences } from '../providers/PreferencesProvider';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -6,6 +7,7 @@ import { Colors } from '../theme';
 import { LEGAL_VERSION, privacySections, termsSections } from '../content/legal';
 
 export default function LegalScreen() {
+  usePreferences();
   const { type } = useLocalSearchParams<{ type?: string }>();
   const privacy = type !== 'terms';
   return <Page><Header title={privacy ? 'Privacidad' : 'Términos de uso'} subtitle={`Versión ${LEGAL_VERSION}`} />

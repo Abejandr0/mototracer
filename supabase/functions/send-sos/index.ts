@@ -20,7 +20,7 @@ export default {
         if (!response.ok) return json({ error: 'twilio_number_check_failed' }, 503);
         const result = await response.json() as { incoming_phone_numbers?: { phone_number?: string; capabilities?: { sms?: boolean } }[] };
         const number = result.incoming_phone_numbers?.find((entry) => entry.phone_number === from);
-        if (!number) return json({ error: 'from_number_not_in_account' }, 503);
+        if (!number) return json({ error: 'from_number_not_in_account', accountLast4: sid.slice(-4), fromLast4: from.slice(-4) }, 503);
         if (!number.capabilities?.sms) return json({ error: 'from_number_cannot_send_sms' }, 503);
         return json({ ready: true, fromLast4: from.slice(-4) });
       } catch { return json({ error: 'twilio_check_unavailable' }, 503); }
@@ -51,12 +51,15 @@ export default {
       const params = new URLSearchParams({ To: contact.phone!.replace(/[\s()-]/g, ''), From: from, Body: body });
       try {
         const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, { method: 'POST', headers: { Authorization: `Basic ${btoa(`${sid}:${token}`)}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
-        return response.ok;
-      } catch { return false; }
+        if (response.ok) return { ok: true, code: null };
+        const failure = await response.json().catch(() => ({})) as { code?: number };
+        return { ok: false, code: typeof failure.code === 'number' ? failure.code : null };
+      } catch { return { ok: false, code: null }; }
     }));
-    const accepted = outcomes.filter(Boolean).length, failed = outcomes.length - accepted;
+    const accepted = outcomes.filter((item) => item.ok).length, failed = outcomes.length - accepted;
+    const twilioErrorCodes = [...new Set(outcomes.map((item) => item.code).filter((code): code is number => code !== null))];
     const status = accepted === 0 ? 'failed' : failed ? 'partial' : 'accepted';
     await ctx.supabaseAdmin.from('sos_alerts').update({ status, accepted_count: accepted, failed_count: failed }).eq('id', alertId).eq('owner_id', ctx.userClaims!.id);
-    return json({ status, accepted, failed, total: contacts.length }, accepted ? 200 : 502);
+    return json({ status, accepted, failed, total: contacts.length, twilioErrorCodes }, accepted ? 200 : 502);
   }),
 };

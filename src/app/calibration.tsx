@@ -1,3 +1,4 @@
+import { usePreferences } from '../providers/PreferencesProvider';
 import React, { useEffect, useRef, useState } from 'react';
 import { Accelerometer, Gyroscope } from 'expo-sensors';
 import { Pressable, Text, View } from 'react-native';
@@ -7,6 +8,7 @@ import { Card, Header, Label, Page, screenStyles as s } from '../components/Scre
 import { useAppData } from '../providers/AppProvider';
 
 export default function CalibrationScreen() {
+  usePreferences();
   type Reading = { x: number; y: number; z: number };
   const [reading, setReading] = useState<Reading>({ x: 0, y: 0, z: 0 });
   const { calibration, updateCalibration } = useAppData();

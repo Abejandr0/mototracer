@@ -1,3 +1,4 @@
+import { usePreferences } from '../providers/PreferencesProvider';
 import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
@@ -11,6 +12,7 @@ const slides = [
   { icon: '✦', eyebrow: '03 / 03  ·  COMPARTE', title: 'Rueda en comunidad', body: 'Descubre rutas de otros bikers, publica tus recorridos y repite una ruta para comparar tus resultados.' },
 ];
 export default function WelcomeScreen() {
+  usePreferences();
   const [index, setIndex] = useState(0);
   const slide = slides[index];
   return <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background, padding: 26, justifyContent: 'space-between' }}>

@@ -1,3 +1,4 @@
+import { usePreferences } from '../providers/PreferencesProvider';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -8,6 +9,7 @@ import { RouteMap } from '../components/RouteMap';
 import { supabase } from '../services/supabase';
 
 export default function SharedRouteScreen() {
+  usePreferences();
   const { id } = useLocalSearchParams<{ id?: string }>(); const { startRide } = useAppData();
   const [ride, setRide] = useState<Ride | null>(null); const [owner, setOwner] = useState('Biker'); const [loading, setLoading] = useState(true);
   useEffect(() => { let active = true; (async () => {

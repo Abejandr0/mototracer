@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle, Line, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { Colors } from '../theme/colors';
+import { usePreferences } from '../providers/PreferencesProvider';
 
 interface LeanGaugeProps {
   angle: number;   // degrees, negative = left, positive = right
@@ -14,6 +15,7 @@ export const LeanGauge: React.FC<LeanGaugeProps> = ({
   maxAngle = 60,
   size = 160,
 }) => {
+  const { language } = usePreferences();
   const cx = size / 2;
   const cy = size / 2;
   const outerR = size / 2 - 8;
@@ -93,8 +95,8 @@ export const LeanGauge: React.FC<LeanGaugeProps> = ({
         <Text style={[styles.angleValue, { color: leanColor }]}>
           {Math.abs(Math.round(angle))}°
         </Text>
-        <Text style={styles.angleLabel}>
-          {angle < -1 ? 'LEFT' : angle > 1 ? 'RIGHT' : 'CENTER'}
+        <Text style={[styles.angleLabel, { color: Colors.textSecondary }]}>
+          {angle < -1 ? language === 'en' ? 'LEFT' : 'IZQ.' : angle > 1 ? language === 'en' ? 'RIGHT' : 'DER.' : language === 'en' ? 'CENTER' : 'CENTRO'}
         </Text>
       </View>
     </View>

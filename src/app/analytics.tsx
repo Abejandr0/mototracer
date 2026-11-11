@@ -1,3 +1,4 @@
+import { usePreferences } from '../providers/PreferencesProvider';
 import React, { useState } from 'react';
 import { Alert, Modal, Pressable, Text, TextInput, View } from 'react-native';
 import { File, Paths } from 'expo-file-system';
@@ -5,31 +6,14 @@ import * as Sharing from 'expo-sharing';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Colors } from '../theme';
 import { Card, Header, Label, Page, screenStyles as s } from '../components/Screen';
-import { Ride, useAppData } from '../providers/AppProvider';
+import { useAppData } from '../providers/AppProvider';
 import { RouteMap } from '../components/RouteMap';
+import { segmentLengthKm, summarizeRide, summarizeSegments } from '../services/rideStats';
 
 type ChartMetric = 'speed' | 'lean' | 'gforce' | 'braking';
 
-function segmentSummary(ride: Ride) {
-  const chunks: { distance: number; speeds: number[]; maxLean: number; start: number; end: number }[] = [];
-  let current = { distance: 0, speeds: [] as number[], maxLean: 0, start: ride.coordinates[0]?.timestamp ?? 0, end: 0 };
-  let previous = ride.coordinates[0];
-  for (const point of ride.coordinates.slice(1)) {
-    if (previous) {
-      const rad = (value: number) => value * Math.PI / 180;
-      const dLat = rad(point.latitude - previous.latitude), dLon = rad(point.longitude - previous.longitude);
-      const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(previous.latitude)) * Math.cos(rad(point.latitude)) * Math.sin(dLon / 2) ** 2;
-      current.distance += 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    }
-    current.speeds.push(point.speed); current.maxLean = Math.max(current.maxLean, Math.abs(point.lean)); current.end = point.timestamp;
-    if (current.distance >= 5) { chunks.push(current); current = { distance: 0, speeds: [], maxLean: 0, start: point.timestamp, end: point.timestamp }; }
-    previous = point;
-  }
-  if (current.speeds.length && current.distance >= 0.5) chunks.push(current);
-  return chunks;
-}
-
 export default function AnalyticsScreen() {
+  usePreferences();
   const { rideId } = useLocalSearchParams<{ rideId?: string }>();
   const { rides, renameRide, startRide } = useAppData();
   const [editing, setEditing] = useState(false);
@@ -49,8 +33,9 @@ export default function AnalyticsScreen() {
   const max = Math.max(...chart, 1);
   const chartName: Record<ChartMetric, string> = { speed: 'Velocidad', lean: 'Inclinación', gforce: 'Aceleración G', braking: 'Frenado' };
   const chartUnit: Record<ChartMetric, string> = { speed: 'km/h', lean: '°', gforce: 'G', braking: 'km/h por muestra' };
-  const elevationGain = ride.coordinates.reduce((gain, point, index) => { const previous = ride.coordinates[index - 1]?.altitude; return previous != null && point.altitude != null ? gain + Math.max(0, point.altitude - previous) : gain; }, 0);
-  const segments = segmentSummary(ride);
+  const totals = summarizeRide(ride);
+  const segmentKm = segmentLengthKm(ride.distanceKm);
+  const segments = summarizeSegments(ride.coordinates, segmentKm);
   const comparison = ride.comparisonSnapshot ?? (ride.comparisonRideId ? rides.find((item) => item.id === ride.comparisonRideId) : undefined);
   const repeat = () => { startRide(ride.id); router.replace('/ride'); };
   const share = () => router.push({ pathname: '/share-ride', params: { rideId: ride.id } });
@@ -77,9 +62,9 @@ export default function AnalyticsScreen() {
     <Label>TELEMETRÍA DE RUTA</Label>
     <View style={[s.row, { gap: 5 }]}>{([{ id: 'speed', label: 'Velocidad' }, { id: 'lean', label: 'Inclinación' }, { id: 'gforce', label: 'G' }, { id: 'braking', label: 'Frenado' }] as { id: ChartMetric; label: string }[]).map((item) => <Pressable key={item.id} onPress={() => setChartMetric(item.id)} style={[s.secondary, { flex: 1, paddingHorizontal: 4, backgroundColor: chartMetric === item.id ? 'rgba(0,229,255,.12)' : undefined }]}><Text style={[s.secondaryText, { fontSize: 10, color: chartMetric === item.id ? Colors.activeTelemetry : Colors.textSecondary }]}>{item.label}</Text></Pressable>)}</View>
     <Card><View style={{ height: 76, flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>{chart.map((v, i) => <View key={i} style={{ flex: 1, height: `${Math.max(4, v / max * 100)}%`, backgroundColor: v > (chartMetric === 'speed' ? ride.avgSpeed : max * 0.65) ? Colors.primaryAction : Colors.activeTelemetry, borderTopLeftRadius: 2, borderTopRightRadius: 2, opacity: .85 }} />)}</View><View style={s.row}><Text style={s.muted}>0 {chartUnit[chartMetric]}</Text><Text style={s.muted}>Máx. {Math.max(...chart, 0).toFixed(chartMetric === 'speed' ? 0 : 1)} {chartUnit[chartMetric]}</Text></View><Text style={{ color: Colors.textTertiary, fontSize: 10, marginTop: 5 }}>{chartName[chartMetric]} · {chart.length} muestras simplificadas</Text></Card>
-    <Label>SEGMENTOS DE 5 KM</Label>
-    <Card>{segments.length ? segments.map((segment, index) => <View key={index} style={[s.row, { borderBottomWidth: index === segments.length - 1 ? 0 : 1, borderBottomColor: Colors.border, paddingVertical: 8 }]}><View><Text style={{ color: Colors.textPrimary, fontWeight: '800' }}>Tramo {String(index + 1).padStart(2, '0')}</Text><Text style={s.muted}>{segment.distance.toFixed(1)} km · {Math.max(0, Math.round((segment.end - segment.start) / 1000))} s</Text></View><View style={{ alignItems: 'flex-end' }}><Text style={{ color: Colors.activeTelemetry, fontWeight: '800' }}>{Math.round(segment.speeds.reduce((sum, value) => sum + value, 0) / segment.speeds.length)} km/h prom.</Text><Text style={s.muted}>Pico {Math.round(Math.max(...segment.speeds))} · {segment.maxLean.toFixed(0)}°</Text></View></View>) : <Text style={s.muted}>Se necesitan al menos 500 m registrados por GPS para calcular tramos.</Text>}</Card>
-    <View style={[s.row, { flexWrap: 'wrap', gap: 9 }]}>{[{ label: 'VELOCIDAD MEDIA', value: `${Math.round(ride.avgSpeed)} km/h` }, { label: 'VELOCIDAD MÁXIMA', value: `${Math.round(ride.maxSpeed)} km/h` }, { label: 'INCLINACIÓN IZQ.', value: `${Math.abs(ride.maxLeanLeft).toFixed(0)}°` }, { label: 'INCLINACIÓN DER.', value: `${ride.maxLeanRight.toFixed(0)}°` }, { label: 'ASCENSO ESTIMADO', value: `${Math.round(elevationGain)} m` }, { label: 'PUNTOS GPS', value: `${ride.coordinates.length}` }].map((item) => <Card key={item.label} style={{ width: '48%' }}><Label>{item.label}</Label><Text style={{ color: Colors.textPrimary, fontSize: 19, fontWeight: '800' }}>{item.value}</Text></Card>)}</View>
+    <Label>TRAMOS DE {segmentKm} KM</Label>
+    <Card>{segments.length ? segments.map((segment, index) => <View key={index} style={{ borderBottomWidth: index === segments.length - 1 ? 0 : 1, borderBottomColor: Colors.border, paddingVertical: 11, gap: 5 }}><View style={s.row}><Text style={{ color: Colors.textPrimary, fontWeight: '900' }}>Tramo {String(index + 1).padStart(2, '0')}</Text><Text style={{ color: Colors.activeTelemetry, fontWeight: '900' }}>{segment.distanceKm.toFixed(2)} km</Text></View><Text style={s.muted}>{Math.max(0, Math.round((segment.end - segment.start) / 1000))} s · {segment.points} puntos GPS</Text><Text style={{ color: Colors.textPrimary, fontWeight: '700' }}>{segment.avgSpeed.toFixed(1)} km/h promedio · {segment.maxSpeed.toFixed(1)} km/h máxima</Text><Text style={s.muted}>Inclinación: izq. {Math.abs(segment.maxLeanLeft).toFixed(0)}° · der. {segment.maxLeanRight.toFixed(0)}° · pico {segment.maxG.toFixed(1)} G</Text></View>) : <Text style={s.muted}>Se necesitan al menos 100 m registrados por GPS para calcular tramos.</Text>}</Card>
+    <View style={[s.row, { flexWrap: 'wrap', gap: 9 }]}>{[{ label: 'VELOCIDAD MEDIA', value: `${Math.round(ride.avgSpeed)} km/h` }, { label: 'VELOCIDAD MÁXIMA', value: `${Math.round(ride.maxSpeed)} km/h` }, { label: 'VELOCIDAD P95', value: `${Math.round(totals.speedP95)} km/h` }, { label: 'TIEMPO EN MOVIMIENTO', value: `${Math.round(totals.movingSeconds / 60)} min` }, { label: 'INCLINACIÓN IZQ.', value: `${Math.abs(ride.maxLeanLeft).toFixed(0)}°` }, { label: 'INCLINACIÓN DER.', value: `${ride.maxLeanRight.toFixed(0)}°` }, { label: 'ASCENSO ESTIMADO', value: `${Math.round(totals.ascent)} m` }, { label: 'DESCENSO ESTIMADO', value: `${Math.round(totals.descent)} m` }, { label: 'PICO DE FUERZA', value: `${totals.maxG.toFixed(1)} G` }, { label: 'PUNTOS GPS', value: `${ride.coordinates.length}` }].map((item) => <Card key={item.label} style={{ width: '48%' }}><Label>{item.label}</Label><Text style={{ color: Colors.textPrimary, fontSize: 19, fontWeight: '800' }}>{item.value}</Text></Card>)}</View>
     <View style={[s.row, { gap: 8 }]}><Pressable onPress={share} style={[s.secondary, { flex: 1 }]}><Text style={s.secondaryText}>Compartir</Text></Pressable><Pressable onPress={() => void exportGpx()} style={[s.secondary, { flex: 1 }]}><Text style={s.secondaryText}>Exportar GPX</Text></Pressable></View>
     <Pressable onPress={repeat} style={s.action}><Text style={s.actionText}>REPETIR Y COMPARAR</Text></Pressable>
     <Pressable onPress={() => router.replace('/(tabs)/routes')}><Text style={{ color: Colors.textSecondary, textAlign: 'center', padding: 8 }}>Volver a rutas</Text></Pressable>

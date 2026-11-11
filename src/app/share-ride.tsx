@@ -1,3 +1,4 @@
+import { usePreferences } from '../providers/PreferencesProvider';
 import React, { useRef } from 'react';
 import { Alert, Pressable, Share, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -9,6 +10,7 @@ import { Header, Page, screenStyles as s } from '../components/Screen';
 import { useAppData } from '../providers/AppProvider';
 
 export default function ShareRideScreen() {
+  usePreferences();
   const { rideId } = useLocalSearchParams<{ rideId?: string }>();
   const { rides, riderName } = useAppData();
   const ride = rides.find((entry) => entry.id === rideId); const card = useRef<React.ElementRef<typeof View>>(null);

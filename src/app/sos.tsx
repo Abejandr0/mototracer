@@ -6,18 +6,29 @@ import * as SMS from 'expo-sms';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useAppData } from '../providers/AppProvider';
 import { supabase } from '../services/supabase';
+import { usePreferences } from '../providers/PreferencesProvider';
+
+function twilioReason(codes: number[]) {
+  if (codes.includes(21659)) return 'El número emisor no pertenece a la cuenta Twilio configurada.';
+  if (codes.includes(21608)) return 'La cuenta de prueba solo permite enviar a destinatarios verificados.';
+  if (codes.includes(21211)) return 'Uno de los contactos tiene un número inválido.';
+  if (codes.includes(21610)) return 'Un destinatario bloqueó los SMS de este emisor.';
+  return codes.length ? `Twilio rechazó el envío (código ${codes[0]}).` : 'No se pudo confirmar el envío con Twilio.';
+}
 
 export default function SOSScreen() {
   const { crash } = useLocalSearchParams<{ crash?: string }>();
-  const { contacts } = useAppData();
+  const { contacts, ride } = useAppData();
+  const { reduceMotion } = usePreferences();
   const [remaining, setRemaining] = useState(crash === '1' ? 30 : 0);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [attempted, setAttempted] = useState(false); const [sent, setSent] = useState(false);
   const [status, setStatus] = useState(''); const sendingRef = useRef(false);
+  const deadline = useRef(Date.now() + 30000);
   const [pulse] = useState(() => new Animated.Value(.35));
-  useEffect(() => { const animation = Animated.loop(Animated.sequence([Animated.timing(pulse, { toValue: 1, duration: 650, useNativeDriver: true }), Animated.timing(pulse, { toValue: .35, duration: 650, useNativeDriver: true })])); animation.start(); return () => animation.stop(); }, [pulse]);
+  useEffect(() => { if (reduceMotion) { pulse.setValue(1); return; } const animation = Animated.loop(Animated.sequence([Animated.timing(pulse, { toValue: 1, duration: 650, useNativeDriver: true }), Animated.timing(pulse, { toValue: .35, duration: 650, useNativeDriver: true })])); animation.start(); return () => animation.stop(); }, [pulse, reduceMotion]);
   useEffect(() => { Location.requestForegroundPermissionsAsync().then((permission) => permission.granted ? Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }).then(setLocation) : undefined).catch(() => undefined); }, []);
-  useEffect(() => { if (remaining <= 0 || attempted) return; const timer = setTimeout(() => setRemaining((value) => value - 1), 1000); return () => clearTimeout(timer); }, [remaining, attempted]);
+  useEffect(() => { if (crash !== '1' || attempted) return; const timer = setInterval(() => setRemaining(Math.max(0, Math.ceil((deadline.current - Date.now()) / 1000))), 250); return () => clearInterval(timer); }, [crash, attempted]);
   const send = useCallback(async () => {
     if (sendingRef.current || sent) return;
     sendingRef.current = true;
@@ -25,12 +36,14 @@ export default function SOSScreen() {
     setStatus('Enviando alerta…');
     try {
       if (!contacts.length) { Alert.alert('Falta un contacto SOS', 'Añade un contacto de emergencia desde tu perfil.', [{ text: 'Perfil', onPress: () => router.replace('/(tabs)/profile') }]); setStatus('Sin contactos SOS'); return; }
-      const coords = location?.coords;
+      const lastPoint = ride?.coordinates.at(-1);
+      const coords = location?.coords ?? lastPoint;
       if (supabase && coords) {
         const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 12000);
         try {
-          const { data, error } = await supabase.functions.invoke<{ accepted: number; failed: number; total: number }>('send-sos', { body: { latitude: coords.latitude, longitude: coords.longitude, contactIds: contacts.map((contact) => contact.id) }, signal: controller.signal });
+          const { data, error } = await supabase.functions.invoke<{ accepted: number; failed: number; total: number; twilioErrorCodes?: number[] }>('send-sos', { body: { latitude: coords.latitude, longitude: coords.longitude, contactIds: contacts.map((contact) => contact.id) }, signal: controller.signal });
           if (!error && data?.accepted) { setSent(true); setStatus(`Twilio aceptó ${data.accepted} de ${data.total} SMS${data.failed ? '; revisa los restantes' : ''}.`); return; }
+          if (error) { try { const failure = await error.context?.json(); setStatus(`${twilioReason(failure?.twilioErrorCodes ?? [])} Abriendo Mensajes…`); } catch { setStatus('No se pudo conectar con Twilio. Abriendo Mensajes…'); } }
         } catch { /* Open the phone's SMS composer below when the backend cannot be reached. */ }
         finally { clearTimeout(timeout); }
       }
@@ -39,10 +52,10 @@ export default function SOSScreen() {
       if (!await SMS.isAvailableAsync()) { Alert.alert('SMS no disponible', 'Este dispositivo no tiene una aplicación de mensajes compatible.'); return; }
       const result = await SMS.sendSMSAsync(contacts.map((contact) => contact.phone), message);
       setSent(result.result === 'sent');
-      setStatus(result.result === 'sent' ? 'Mensaje enviado desde tu teléfono.' : 'Confirma el envío en Mensajes.');
+      setStatus(result.result === 'sent' ? 'Mensajes aceptó el envío; confirma la entrega con tu operador.' : 'Confirma el envío en Mensajes.');
     } catch { setStatus('No se pudo enviar la alerta.'); Alert.alert('No se pudo abrir Mensajes', 'Comprueba que tu teléfono tenga una aplicación de SMS configurada.'); }
     finally { sendingRef.current = false; }
-  }, [contacts, location, sent]);
+  }, [contacts, location, ride, sent]);
   useEffect(() => { if (crash === '1' && remaining === 0 && !attempted) { const timer = setTimeout(() => { void send(); }, 0); return () => clearTimeout(timer); } }, [crash, remaining, attempted, send]);
   return <SafeAreaView style={{ flex: 1, backgroundColor: '#3D0710' }}><ScrollView contentContainerStyle={{ flexGrow: 1, padding: 22, justifyContent: 'space-between', gap: 26 }}>
     <View><Text style={{ color: '#FFC3CC', fontSize: 10, letterSpacing: 2, textAlign: 'center', fontWeight: '900' }}>MOTOTRACER · EMERGENCIA</Text><Text style={{ color: '#fff', fontSize: 31, fontWeight: '900', marginTop: 20 }}>Alerta SOS</Text><Text style={{ color: '#FFD0D5', fontSize: 15, marginTop: 7 }}>{crash === '1' ? 'Detectamos un posible impacto fuerte.' : 'Prepara tu ubicación para tus contactos.'}</Text></View>

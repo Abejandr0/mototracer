@@ -1,3 +1,4 @@
+import { usePreferences } from '../providers/PreferencesProvider';
 import React, { useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -10,8 +11,9 @@ import { screenStyles as s } from '../components/Screen';
 import { supabase } from '../services/supabase';
 import { uploadUserImage } from '../services/media';
 
-const field = { color: Colors.textPrimary, backgroundColor: Colors.card, borderColor: Colors.border, borderWidth: 1, borderRadius: 12, padding: 15, fontSize: 15 } as const;
+const field = () => ({ color: Colors.textPrimary, backgroundColor: Colors.card, borderColor: Colors.border, borderWidth: 1, borderRadius: 12, padding: 15, fontSize: 15 } as const);
 export default function ProfileSetupScreen() {
+  usePreferences();
   const auth = useAuth(); const app = useAppData();
   const [name, setName] = useState(app.riderName || String(auth.session?.user.user_metadata?.full_name ?? ''));
   const [city, setCity] = useState(app.riderCity); const [bio, setBio] = useState(app.riderBio);
@@ -31,9 +33,9 @@ export default function ProfileSetupScreen() {
   return <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, padding: 24, justifyContent: 'center', gap: 15 }}>
     <Text style={{ color: Colors.activeTelemetry, fontWeight: '900', letterSpacing: 2 }}>TU PERFIL · 1 DE 2</Text><Text style={{ color: Colors.textPrimary, fontWeight: '900', fontSize: 31 }}>¿Quién va al manubrio?</Text><Text style={s.muted}>Estos datos aparecerán junto a las rutas que decidas publicar. Puedes cambiarlos después.</Text>
     <Pressable onPress={() => void pickPhoto()} style={{ alignSelf: 'center', width: 92, height: 92, borderRadius: 46, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.card, overflow: 'hidden' }}>{photo ? <Image source={{ uri: photo }} style={{ width: 92, height: 92 }} /> : <Text style={{ color: Colors.activeTelemetry, fontSize: 33 }}>＋</Text>}</Pressable><Text style={{ color: Colors.activeTelemetry, textAlign: 'center' }}>Foto de perfil · opcional</Text>
-    <TextInput placeholder="Nombre visible" placeholderTextColor={Colors.textTertiary} value={name} onChangeText={setName} style={field} />
-    <TextInput placeholder="Ciudad" placeholderTextColor={Colors.textTertiary} value={city} onChangeText={setCity} style={field} />
-    <TextInput placeholder="Sobre ti · opcional" placeholderTextColor={Colors.textTertiary} value={bio} onChangeText={setBio} multiline style={[field, { minHeight: 95, textAlignVertical: 'top' }]} />
+    <TextInput placeholder="Nombre visible" placeholderTextColor={Colors.textTertiary} value={name} onChangeText={setName} style={field()} />
+    <TextInput placeholder="Ciudad" placeholderTextColor={Colors.textTertiary} value={city} onChangeText={setCity} style={field()} />
+    <TextInput placeholder="Sobre ti · opcional" placeholderTextColor={Colors.textTertiary} value={bio} onChangeText={setBio} multiline style={[field(), { minHeight: 95, textAlignVertical: 'top' }]} />
     {error ? <Text style={{ color: Colors.emergency }}>{error}</Text> : null}
     <Pressable disabled={busy} onPress={() => void save()} style={[s.action, { opacity: busy ? .5 : 1 }]}><Text style={s.actionText}>{busy ? 'GUARDANDO…' : 'CONTINUAR AL GARAJE'}</Text></Pressable>
   </ScrollView></KeyboardAvoidingView></SafeAreaView>;

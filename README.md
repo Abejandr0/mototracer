@@ -55,18 +55,24 @@ Las dos variables de Supabase ya se registraron en EAS para `development`, `prev
 
 - Bienvenida, cuenta obligatoria, aceptación de términos y privacidad, configuración de perfil y primera moto.
 - Hasta cinco motocicletas; catálogo de marcas y modelos con entrada manual y sugerencias enviadas al backend.
-- Foto de tablero en almacenamiento privado y kilometraje confirmado manualmente; historial de lecturas y seguimiento de servicios.
-- GPS y mapa durante la rodada, velocidad, distancia, inclinación, pausa, sensores, calibración, estadísticas por segmento y comparación con una ruta de referencia.
-- Feed real con publicación opcional, likes y tres rutas de demostración claramente marcadas. Los primeros y últimos 200 m se recortan por defecto al publicar.
+- Foto de tablero en almacenamiento privado; OCR local sugiere el kilometraje y el usuario lo confirma antes de actualizar el odómetro y los servicios. El OCR usa `expo-ocr-kit`, por lo que requiere una **nueva development build** tras instalar esta versión; no funciona en Expo Go.
+- GPS y mapa durante la rodada, velocidad nativa o calculada entre posiciones, distancia, inclinación, pausa, sensores, calibración, estadísticas por segmento y comparación con una ruta de referencia. Pausar, terminar y abrir SOS requieren mantener pulsado el botón dos segundos.
+- Feed real con publicación opcional, likes y rutas de demostración claramente marcadas. Sus trazados ilustrativos se generaron con datos de OpenStreetMap mediante OSRM; el mapa del feed no intercepta gestos. Los primeros y últimos 200 m se recortan por defecto al publicar.
 - Vista previa de una rodada, enlace de una ruta pública para abrirla en otra cuenta MotoTracer, compartir texto, exportar tarjeta PNG y GPX.
 - SOS rojo con cuenta regresiva de 30 segundos. La función `send-sos` de Supabase envía con Twilio automáticamente cuando tiene secretos configurados, GPS y contactos sincronizados. Si falla, se abre Mensajes y el usuario confirma el envío. La detección depende de los sensores y del estado de la app.
 - Respaldo local por cuenta, sincronización en la nube con estado visible, recuperación opcional de datos de la versión anterior y recuperación de rodada activa tras un reinicio.
+- Ajustes de tema claro/oscuro/sistema, contraste, tamaño de texto, reducción de movimiento e inglés parcial para navegación y pantallas principales.
+
+### Confirmación de correo
+
+La confirmación está activada en Supabase y el enlace de retorno `mototracer://auth-callback` ya está registrado en el proyecto de producción. La app admite enlace profundo, reenvío y código OTP. **El proyecto aún no tiene SMTP propio**: el servicio de correo predeterminado de Supabase está limitado a direcciones autorizadas del equipo, así que el registro de usuarios externos no se puede validar por correo hasta configurarlo. En [Supabase → Authentication → SMTP Settings](https://supabase.com/dashboard/project/mpeswbnmurnzjhklmctt/auth/smtp), configura un proveedor SMTP (por ejemplo Resend, SendGrid o SES) y verifica el dominio remitente. No coloques contraseñas SMTP en Git ni en la app. Después prueba registro y confirmación en una development build instalada en Android y iPhone; el enlace debe abrir MotoTracer. El idioma inglés de esta versión es parcial.
 
 ## Verificación y publicación
 
 ```bash
 npx tsc --noEmit
 npm run lint
+npm run test:logic
 npx expo-doctor
 npx expo export --platform android
 npx eas-cli@latest build --platform android --profile preview
@@ -75,6 +81,6 @@ npx eas-cli@latest build --platform all --profile production
 
 ### Activar SMS automático con Twilio
 
-La función `send-sos` y su tabla de auditoría ya están desplegadas. Los secretos `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` y `TWILIO_FROM_NUMBER` ya figuran configurados en Supabase; los valores no son visibles desde el listado. `TWILIO_FROM_NUMBER` debe ser un número E.164, por ejemplo `+15551234567`, sin espacios, y pertenecer a la cuenta de Twilio con capacidad SMS. Desde **Perfil → Verificar Twilio** puedes comprobar credenciales, formato y número sin enviar mensajes. Para cambiar secretos, usa el panel de Supabase **Edge Functions → Secrets** o un archivo `.env.twilio` local, excluido por `.gitignore`, con `npx supabase secrets set --env-file .env.twilio --remote`. **No pongas el token en Expo, Git ni el chat.** Activa la confirmación de correo en Supabase Auth y prueba una alerta con números autorizados por tu cuenta de Twilio. La función limita un SOS aceptado cada cinco minutos y cinco intentos al día por cuenta; lee sólo los contactos guardados en el respaldo privado de ese usuario. Un SMS aceptado por Twilio aún puede fallar en la entrega.
+La función `send-sos` y su tabla de auditoría ya están desplegadas. Los secretos `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` y `TWILIO_FROM_NUMBER` ya figuran configurados en Supabase; los valores no son visibles desde el listado. `TWILIO_FROM_NUMBER` debe ser un número E.164, por ejemplo `+15551234567`, sin espacios, y corresponder a un **Incoming Phone Number** con capacidad SMS en la misma cuenta o subcuenta del SID configurado. Un número personal verificado como destinatario no sirve como emisor. Desde **Perfil → Verificar Twilio** puedes comprobar credenciales, formato y número sin enviar mensajes; la comprobación muestra solo los últimos cuatro caracteres del SID y del número configurado. Si aparece `from_number_not_in_account`, compara el SID con la cuenta/subcuenta propietaria del número en la consola de Twilio y corrige el secreto que no corresponda. Para cambiar secretos, usa el panel de Supabase **Edge Functions → Secrets** o un archivo `.env.twilio` local, excluido por `.gitignore`, con `npx supabase secrets set --env-file .env.twilio --remote`. **No pongas el token en Expo, Git ni el chat.** La función limita un SOS aceptado cada cinco minutos y cinco intentos al día por cuenta; lee sólo los contactos guardados en el respaldo privado de ese usuario. Un SMS aceptado por Twilio aún puede fallar en la entrega.
 
 Antes de publicar en tiendas, configura la clave de Google Maps para Android; completa domicilio, dirección y teléfono del responsable en la política; prueba rutas, permisos de segundo plano, foto, SMS y restauración de datos en teléfonos reales; y revisa la política y términos con asesoría jurídica. Las rutas de demostración no se publican como usuarios reales.
