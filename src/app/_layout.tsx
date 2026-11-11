@@ -1,6 +1,7 @@
 import { Stack, router, usePathname } from 'expo-router';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Colors } from '../theme';
@@ -14,6 +15,7 @@ function AppStack() {
   const { session, loading } = useAuth();
   const { ready, profileComplete, vehicles } = useAppData();
   const pathname = usePathname();
+  useEffect(() => { void SystemUI.setBackgroundColorAsync(Colors.background).catch(() => undefined); }, [resolvedTheme]);
   useEffect(() => {
     if (loading || !ready) return;
     if (!session) { if (!['/welcome', '/auth', '/legal', '/email-pending', '/auth-callback', '/'].includes(pathname)) router.replace('/welcome'); return; }

@@ -26,6 +26,10 @@ export default function VehicleFormScreen() {
   const brands = useMemo(() => motorcycleBrands.filter((name) => name.toLowerCase().includes(brandQuery.toLowerCase())).slice(0, brandQuery ? 30 : 10), [brandQuery]);
   const models = (motorcycleCatalog[make] ?? []).filter((name) => name.toLowerCase().includes(modelQuery.toLowerCase()));
   const pickPhoto = async () => { const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [16, 9], quality: .85 }); if (!result.canceled && result.assets[0]?.uri) setNewPhoto(result.assets[0].uri); };
+  const back = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace(setup ? '/profile-setup' : '/(tabs)/garage');
+  };
   const save = async () => {
     const km = Number(odometer), serviceInterval = Number(interval);
     if (!make.trim() || !model.trim() || !/^\d{4}$/.test(year) || !Number.isFinite(km) || km < 0 || !Number.isFinite(serviceInterval) || serviceInterval <= 0) { setError('Revisa marca, modelo, año, odómetro e intervalo.'); return; }
@@ -40,23 +44,46 @@ export default function VehicleFormScreen() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo guardar la motocicleta.'); }
     finally { setBusy(false); }
   };
-  return <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingBottom: 100, gap: 13 }}>
-    <Pressable onPress={() => router.back()}><Text style={{ color: Colors.activeTelemetry }}>‹ Volver</Text></Pressable>
-    {setup ? <Text style={{ color: Colors.activeTelemetry, fontWeight: '900', letterSpacing: 2 }}>TU GARAJE · 2 DE 2</Text> : null}<Text style={{ color: Colors.textPrimary, fontSize: 29, fontWeight: '900' }}>{existing ? 'Editar motocicleta' : 'Añade tu motocicleta'}</Text><Text style={s.muted}>Busca una marca y modelo o escríbelos si no aparecen en el catálogo.</Text>
-    <Pressable onPress={() => void pickPhoto()} style={s.secondary}><Text style={s.secondaryText}>{newPhoto || existing?.photoUri ? 'CAMBIAR FOTO DE MI MOTO' : 'SUBIR FOTO DE MI MOTO'}</Text></Pressable>
-    {newPhoto || existingPhoto ? <Image source={{ uri: newPhoto ?? existingPhoto ?? undefined }} resizeMode="cover" style={{ width: '100%', height: 150, borderRadius: 12, backgroundColor: Colors.surface }} /> : <Text style={s.muted}>Tu foto aparecerá en Inicio y en el garaje. No mostraremos una moto distinta como sustituto.</Text>}
-    <Text style={{ color: Colors.textPrimary, fontWeight: '800' }}>Marca</Text><TextInput placeholder="Buscar marca" placeholderTextColor={Colors.textTertiary} value={brandQuery} onChangeText={setBrandQuery} style={input()} />
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{brands.map((brand) => <Pressable key={brand} onPress={() => { setMake(brand); setModel(''); setBrandQuery(brand); }} style={{ borderColor: make === brand ? Colors.activeTelemetry : Colors.border, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 18, backgroundColor: make === brand ? '#10343A' : Colors.card }}><Text style={{ color: make === brand ? Colors.activeTelemetry : Colors.textSecondary }}>{brand}</Text></Pressable>)}</View>
-    <TextInput placeholder="Otra marca" placeholderTextColor={Colors.textTertiary} value={make} onChangeText={(value) => { setMake(value); setModel(''); }} style={input()} />
-    <Text style={{ color: Colors.textPrimary, fontWeight: '800', marginTop: 10 }}>Modelo</Text><TextInput placeholder="Buscar modelo" placeholderTextColor={Colors.textTertiary} value={modelQuery} onChangeText={setModelQuery} style={input()} />
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{models.map((entry) => <Pressable key={entry} onPress={() => setModel(entry)} style={{ borderColor: model === entry ? Colors.activeTelemetry : Colors.border, borderWidth: 1, paddingHorizontal: 11, paddingVertical: 8, borderRadius: 18, backgroundColor: model === entry ? '#10343A' : Colors.card }}><Text style={{ color: model === entry ? Colors.activeTelemetry : Colors.textSecondary }}>{entry}</Text></Pressable>)}</View>
-    <TextInput placeholder="Otro modelo" placeholderTextColor={Colors.textTertiary} value={model} onChangeText={setModel} style={input()} />
-    <Text style={{ color: Colors.textPrimary, fontWeight: '800', marginTop: 10 }}>Año</Text><TextInput value={year} onChangeText={setYear} keyboardType="number-pad" maxLength={4} style={input()} />
-    <Text style={{ color: Colors.textPrimary, fontWeight: '800' }}>Odómetro total · km</Text><TextInput value={odometer} onChangeText={setOdometer} keyboardType="decimal-pad" style={input()} />
-    <Text style={{ color: Colors.textPrimary, fontWeight: '800' }}>Intervalo de cambio de aceite · km</Text><TextInput value={interval} onChangeText={setIntervalValue} keyboardType="number-pad" style={input()} />
-    <Pressable onPress={() => router.push('/vehicle-suggestion')}><Text style={{ color: Colors.activeTelemetry, paddingVertical: 5 }}>¿Falta una marca, modelo u otro tipo de vehículo? Sugiérelo ›</Text></Pressable>
+  const photo = newPhoto ?? existingPhoto;
+  const deleteExisting = () => existing && Alert.alert('Eliminar motocicleta', 'Se eliminarán sus servicios, fotos y lecturas de odómetro. Las rodadas guardadas permanecerán.', [{ text: 'Cancelar' }, { text: 'Eliminar', style: 'destructive', onPress: () => { void (async () => { try { await deleteUserImages([existing.photoUri, ...app.odometerEntries.filter((entry) => entry.vehicleId === existing.id).map((entry) => entry.photoUri)]); app.deleteVehicle(existing.id); router.replace('/(tabs)/garage'); } catch (cause) { Alert.alert('No se pudo eliminar', cause instanceof Error ? cause.message : 'Intenta de nuevo.'); } })(); } }]);
+  return <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingBottom: 100, gap: 13 }}>
+    <Pressable onPress={back} style={{ alignSelf: 'flex-start', paddingVertical: 4 }}><Text style={{ color: Colors.activeTelemetry, fontWeight: '700' }}>‹ {existing ? 'Garage' : 'Back'}</Text></Pressable>
+    {setup ? <Text style={{ color: Colors.activeTelemetry, fontWeight: '900', letterSpacing: 2 }}>TU GARAJE · 2 DE 2</Text> : null}
+    {existing ? <>
+      <Text style={{ color: Colors.textPrimary, fontSize: 30, fontWeight: '900' }}>Vehicle details</Text><Text style={s.muted}>Update this motorcycle’s identity, odometer and maintenance interval.</Text>
+      <View style={{ borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card }}>
+        {photo ? <Image source={{ uri: photo }} resizeMode="cover" style={{ width: '100%', height: 190, backgroundColor: Colors.surface }} /> : <View style={{ height: 150, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.cardElevated }}><Text style={{ fontSize: 46 }}>🏍️</Text><Text style={s.muted}>Add a photo of your bike</Text></View>}
+        <Pressable onPress={() => void pickPhoto()} style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}><Text style={{ color: Colors.activeTelemetry, fontWeight: '900' }}>▧  {photo ? 'CHANGE VEHICLE PHOTO' : 'ADD VEHICLE PHOTO'}</Text></Pressable>
+      </View>
+      <View style={{ gap: 10, padding: 16, borderRadius: 17, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border }}>
+        <Text style={{ color: Colors.activeTelemetry, fontSize: 11, fontWeight: '900', letterSpacing: 1.3 }}>IDENTITY</Text>
+        <Text style={{ color: Colors.textSecondary, fontSize: 12 }}>Make</Text><TextInput accessibilityLabel="Make" value={make} onChangeText={setMake} style={input()} />
+        <Text style={{ color: Colors.textSecondary, fontSize: 12 }}>Model</Text><TextInput accessibilityLabel="Model" value={model} onChangeText={setModel} style={input()} />
+        <Text style={{ color: Colors.textSecondary, fontSize: 12 }}>Year</Text><TextInput accessibilityLabel="Year" value={year} onChangeText={setYear} keyboardType="number-pad" maxLength={4} style={input()} />
+      </View>
+      <View style={{ gap: 10, padding: 16, borderRadius: 17, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border }}>
+        <Text style={{ color: Colors.activeTelemetry, fontSize: 11, fontWeight: '900', letterSpacing: 1.3 }}>ODOMETER & MAINTENANCE</Text>
+        <Text style={{ color: Colors.textSecondary, fontSize: 12 }}>Total odometer · km</Text><TextInput accessibilityLabel="Total odometer in kilometers" value={odometer} onChangeText={setOdometer} keyboardType="decimal-pad" style={input()} />
+        <Text style={{ color: Colors.textSecondary, fontSize: 12 }}>Oil service interval · km</Text><TextInput accessibilityLabel="Oil service interval in kilometers" value={interval} onChangeText={setIntervalValue} keyboardType="number-pad" style={input()} />
+        <Text style={s.muted}>You can upload an odometer photo from Garage to confirm a new reading.</Text>
+      </View>
+    </> : <>
+      <Text style={{ color: Colors.textPrimary, fontSize: 29, fontWeight: '900' }}>Add your motorcycle</Text><Text style={s.muted}>Busca una marca y modelo o escríbelos si no aparecen en el catálogo.</Text>
+      <Pressable onPress={() => void pickPhoto()} style={s.secondary}><Text style={s.secondaryText}>{newPhoto ? 'CAMBIAR FOTO DE MI MOTO' : 'SUBIR FOTO DE MI MOTO'}</Text></Pressable>
+      {photo ? <Image source={{ uri: photo }} resizeMode="cover" style={{ width: '100%', height: 150, borderRadius: 12, backgroundColor: Colors.surface }} /> : <Text style={s.muted}>Tu foto aparecerá en Inicio y en el garaje. No mostraremos una moto distinta como sustituto.</Text>}
+      <Text style={{ color: Colors.textPrimary, fontWeight: '800' }}>Marca</Text><TextInput placeholder="Buscar marca" placeholderTextColor={Colors.textTertiary} value={brandQuery} onChangeText={setBrandQuery} style={input()} />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{brands.map((brand) => <Pressable key={brand} onPress={() => { setMake(brand); setModel(''); setBrandQuery(brand); }} style={{ borderColor: make === brand ? Colors.activeTelemetry : Colors.border, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 18, backgroundColor: make === brand ? Colors.cardElevated : Colors.card }}><Text style={{ color: make === brand ? Colors.activeTelemetry : Colors.textSecondary }}>{brand}</Text></Pressable>)}</View>
+      <TextInput placeholder="Otra marca" placeholderTextColor={Colors.textTertiary} value={make} onChangeText={(value) => { setMake(value); setModel(''); }} style={input()} />
+      <Text style={{ color: Colors.textPrimary, fontWeight: '800', marginTop: 10 }}>Modelo</Text><TextInput placeholder="Buscar modelo" placeholderTextColor={Colors.textTertiary} value={modelQuery} onChangeText={setModelQuery} style={input()} />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{models.map((entry) => <Pressable key={entry} onPress={() => setModel(entry)} style={{ borderColor: model === entry ? Colors.activeTelemetry : Colors.border, borderWidth: 1, paddingHorizontal: 11, paddingVertical: 8, borderRadius: 18, backgroundColor: model === entry ? Colors.cardElevated : Colors.card }}><Text style={{ color: model === entry ? Colors.activeTelemetry : Colors.textSecondary }}>{entry}</Text></Pressable>)}</View>
+      <TextInput placeholder="Otro modelo" placeholderTextColor={Colors.textTertiary} value={model} onChangeText={setModel} style={input()} />
+      <Text style={{ color: Colors.textPrimary, fontWeight: '800', marginTop: 10 }}>Año</Text><TextInput value={year} onChangeText={setYear} keyboardType="number-pad" maxLength={4} style={input()} />
+      <Text style={{ color: Colors.textPrimary, fontWeight: '800' }}>Odómetro total · km</Text><TextInput value={odometer} onChangeText={setOdometer} keyboardType="decimal-pad" style={input()} />
+      <Text style={{ color: Colors.textPrimary, fontWeight: '800' }}>Intervalo de cambio de aceite · km</Text><TextInput value={interval} onChangeText={setIntervalValue} keyboardType="number-pad" style={input()} />
+      <Pressable onPress={() => router.push('/vehicle-suggestion')}><Text style={{ color: Colors.activeTelemetry, paddingVertical: 5 }}>¿Falta una marca, modelo u otro tipo de vehículo? Sugiérelo ›</Text></Pressable>
+    </>}
     {error ? <Text style={{ color: Colors.emergency }}>{error}</Text> : null}
-    <Pressable disabled={busy} onPress={() => void save()} style={[s.action, { opacity: busy ? .5 : 1 }]}><Text style={s.actionText}>{busy ? 'GUARDANDO…' : existing ? 'GUARDAR CAMBIOS' : 'AÑADIR AL GARAJE'}</Text></Pressable>
-    {existing ? <Pressable onPress={() => Alert.alert('Eliminar motocicleta', 'Se eliminarán sus servicios, fotos y lecturas de odómetro. Las rodadas guardadas permanecerán.', [{ text: 'Cancelar' }, { text: 'Eliminar', style: 'destructive', onPress: () => { void (async () => { try { await deleteUserImages([existing.photoUri, ...app.odometerEntries.filter((entry) => entry.vehicleId === existing.id).map((entry) => entry.photoUri)]); app.deleteVehicle(existing.id); router.replace('/(tabs)/garage'); } catch (cause) { Alert.alert('No se pudo eliminar', cause instanceof Error ? cause.message : 'Intenta de nuevo.'); } })(); } }])} style={[s.secondary, { borderColor: Colors.emergency }]}><Text style={{ color: Colors.emergency, fontWeight: '800' }}>ELIMINAR MOTOCICLETA</Text></Pressable> : null}
+    <Pressable disabled={busy} onPress={() => void save()} style={[s.action, { opacity: busy ? .5 : 1 }]}><Text style={s.actionText}>{busy ? 'SAVING…' : existing ? 'SAVE VEHICLE CHANGES' : 'ADD TO GARAGE'}</Text></Pressable>
+    {existing ? <Pressable onPress={deleteExisting} style={[s.secondary, { borderColor: Colors.emergency }]}><Text style={{ color: Colors.emergency, fontWeight: '800' }}>DELETE MOTORCYCLE</Text></Pressable> : null}
   </ScrollView></KeyboardAvoidingView></SafeAreaView>;
 }
