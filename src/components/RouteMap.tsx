@@ -1,30 +1,22 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Text, View } from 'react-native';
-import Svg, { Line, Polyline } from 'react-native-svg';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import { Colors } from '../theme';
 import { Coordinate } from '../providers/AppProvider';
 
-export function RouteMap({ coordinates, height = 112 }: { coordinates: Coordinate[]; height?: number }) {
-  let points = '';
-  if (coordinates.length > 1) {
-    const lats = coordinates.map((point) => point.latitude);
-    const lons = coordinates.map((point) => point.longitude);
-    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-    const minLon = Math.min(...lons), maxLon = Math.max(...lons);
-    const dx = Math.max(maxLon - minLon, 0.00001), dy = Math.max(maxLat - minLat, 0.00001);
-    const stride = Math.max(1, Math.floor(coordinates.length / 160));
-    points = coordinates.filter((_, index) => index % stride === 0).map((point) => `${12 + (point.longitude - minLon) / dx * 276},${12 + (1 - (point.latitude - minLat) / dy) * 96}`).join(' ');
-    const last = coordinates[coordinates.length - 1];
-    points += ` ${12 + (last.longitude - minLon) / dx * 276},${12 + (1 - (last.latitude - minLat) / dy) * 96}`;
-  }
-  return <View style={{ height, borderRadius: 10, overflow: 'hidden', backgroundColor: '#13191C', justifyContent: 'center' }}>
-    <Svg width="100%" height="100%" viewBox="0 0 300 120" preserveAspectRatio="none">
-      <Line x1="0" y1="32" x2="300" y2="32" stroke="#202B30" strokeWidth="1" />
-      <Line x1="0" y1="82" x2="300" y2="82" stroke="#202B30" strokeWidth="1" />
-      <Line x1="62" y1="0" x2="62" y2="120" stroke="#202B30" strokeWidth="1" />
-      <Line x1="228" y1="0" x2="228" y2="120" stroke="#202B30" strokeWidth="1" />
-      {points ? <Polyline points={points} fill="none" stroke={Colors.activeTelemetry} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" /> : null}
-    </Svg>
-    {coordinates.length < 2 ? <Text style={{ color: Colors.textTertiary, fontSize: 10, alignSelf: 'center', position: 'absolute' }}>El trazado GPS aparecerá al registrar una ruta.</Text> : null}
+export function RouteMap({ coordinates, height = 112, follow = false }: { coordinates: Coordinate[]; height?: number; follow?: boolean }) {
+  const map = useRef<MapView>(null);
+  const first = coordinates[0]; const last = coordinates.at(-1);
+  useEffect(() => {
+    if (!map.current || coordinates.length < 2) return;
+    if (follow && last) map.current.animateCamera({ center: { latitude: last.latitude, longitude: last.longitude }, zoom: 15 }, { duration: 400 });
+    else map.current.fitToCoordinates(coordinates.map((point) => ({ latitude: point.latitude, longitude: point.longitude })), { edgePadding: { top: 24, right: 24, bottom: 24, left: 24 }, animated: false });
+  }, [coordinates, follow, last]);
+  return <View style={{ height, borderRadius: 12, overflow: 'hidden', backgroundColor: '#142126' }}>
+    {first ? <MapView ref={map} style={{ flex: 1 }} mapType="standard" initialRegion={{ latitude: first.latitude, longitude: first.longitude, latitudeDelta: .03, longitudeDelta: .03 }} scrollEnabled={!follow} zoomEnabled={!follow} rotateEnabled={false} toolbarEnabled={false}>
+      {coordinates.length > 1 ? <Polyline coordinates={coordinates.map((point) => ({ latitude: point.latitude, longitude: point.longitude }))} strokeColor={Colors.activeTelemetry} strokeWidth={4} /> : null}
+      <Marker coordinate={{ latitude: first.latitude, longitude: first.longitude }} pinColor={Colors.gpsOptimal} title="Inicio" />
+      {last && coordinates.length > 1 ? <Marker coordinate={{ latitude: last.latitude, longitude: last.longitude }} pinColor={Colors.primaryAction} title={follow ? 'Posición actual' : 'Final'} /> : null}
+    </MapView> : <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: Colors.textTertiary, fontSize: 11, textAlign: 'center' }}>El mapa aparecerá al recibir el primer punto GPS.</Text></View>}
   </View>;
 }

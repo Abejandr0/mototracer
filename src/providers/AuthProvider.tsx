@@ -9,6 +9,7 @@ type AuthContextValue = {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
+  acceptLegal: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -35,9 +36,10 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     },
     signUp: async (email, password, name) => {
       if (!supabase) throw new Error('Falta configurar Supabase.');
-      const { error } = await supabase.auth.signUp({ email: email.trim(), password, options: { data: { full_name: name.trim() } } });
+      const { error } = await supabase.auth.signUp({ email: email.trim(), password, options: { data: { full_name: name.trim(), legal_accepted_at: new Date().toISOString(), legal_version: '2026-11-10' } } });
       if (error) throw error;
     },
+    acceptLegal: async () => { if (!supabase) throw new Error('Falta configurar Supabase.'); const { error } = await supabase.auth.updateUser({ data: { legal_accepted_at: new Date().toISOString(), legal_version: '2026-11-10' } }); if (error) throw error; },
     signOut: async () => { if (!supabase) return; const { error } = await supabase.auth.signOut(); if (error) throw error; },
   }), [session, loading]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

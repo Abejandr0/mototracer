@@ -1,56 +1,80 @@
 # MotoTracer
 
-App móvil Expo/React Native para bikers. La interfaz sigue los ocho flujos del archivo de Figma: inicio, perfil/garaje, mantenimiento, calibración, SOS, análisis de ruta y HUD vertical/horizontal.
+Aplicación móvil para registrar rodadas, administrar motocicletas y compartir rutas. Usa Expo SDK 58, React Native, Expo Router y Supabase. El proyecto EAS ya está vinculado a la cuenta `abejandro`; la base de datos `mototracer-production` ya tiene aplicadas las migraciones incluidas en `supabase/migrations/`.
 
-## Desarrollo
+## Qué es una development build
+
+Es una versión instalable de **MotoTracer**, compilada con sus módulos nativos. Expo Go es una app genérica y no incluye toda la configuración de ubicación en segundo plano, cámara, mapas y cliente de desarrollo de este proyecto. La development build sí; después de instalarla, los cambios de JavaScript se cargan desde Metro sin recompilar. Repite la build cuando cambien dependencias nativas, permisos o plugins.
+
+### iPhone físico
+
+Necesitas una cuenta activa del [Apple Developer Program](https://developer.apple.com/programs/), el iPhone registrado para distribución interna y el **Modo Desarrollador** activado en Ajustes → Privacidad y seguridad. Desde la raíz de este repositorio:
 
 ```bash
 npm install
-npx expo start
+npx eas-cli@latest login
+npx eas-cli@latest device:create
+npx eas-cli@latest build --platform ios --profile development
+npx expo start --dev-client --tunnel
 ```
 
-La ubicación, sensores y tareas con la pantalla bloqueada requieren un teléfono físico. Para el seguimiento en segundo plano usa una development build; Expo Go no puede ejecutar el servicio de ubicación de fondo.
+EAS pedirá configurar la firma de Apple la primera vez. Al terminar la build, abre el enlace de instalación en el iPhone registrado. Abre MotoTracer y elige el servidor de desarrollo. Si registras otro iPhone, vuelve a construir o firma de nuevo la build para incluir su UDID. Un simulador iOS requiere macOS; su perfil es `development-simulator`.
 
-## Backend Supabase
-
-1. Crea un proyecto Supabase y abre su SQL Editor.
-2. Ejecuta `supabase/migrations/202611070001_initial_schema.sql`.
-3. Copia `.env.example` a `.env` y agrega la URL y publishable key del proyecto:
-
-   ```env
-   EXPO_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
-   EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
-   ```
-
-4. Reinicia Metro. Crea una cuenta desde **Perfil → Cuenta MotoTracer**.
-5. Antes de producción, registra las mismas variables como variables de entorno del proyecto EAS y evita guardar `.env` en Git.
-
-La migración configura Auth profiles, motos, servicios, contactos privados, rodadas y sus puntos GPS, likes, almacenamiento de fotos y políticas RLS. El historial local se guarda en el dispositivo y se sincroniza como una copia privada al iniciar sesión. Las rutas son privadas hasta que el usuario las publique. Para conectar las cuentas de tienda, conserva el identificador EAS de `app.json`.
-
-## Crear builds
+### Android físico
 
 ```bash
-npx eas-cli login
-npx eas-cli build --profile preview --platform android
-npx eas-cli build --profile production --platform all
+npx eas-cli@latest build --platform android --profile development
+npx expo start --dev-client --tunnel
 ```
 
-Para iOS se necesita una cuenta Apple Developer y credenciales de firma configuradas en EAS.
+Instala el APK desde el enlace de EAS. Para mapas en una build Android hace falta `GOOGLE_MAPS_ANDROID_API_KEY`, restringida al paquete `com.abejandro.mototracer` y al SHA-1 de firma. El desarrollo en iPhone usa Apple Maps y no necesita esa clave.
 
-## Funciones
+## Backend y base de datos
 
-- HUD con GPS, velocidad, distancia, duración, velocidad media/máxima, inclinación y pausa.
-- Registro de ubicación cuando la app pasa a segundo plano si el usuario concede ese permiso. El sistema operativo puede detener el servicio si fuerza el cierre de la app.
-- Calibración guardada, historial de rutas, gráficos de velocidad/inclinación/G/frenado, tramos de 5 km, mapas, exportación GPX y comparación de rodadas repetidas.
-- Garaje con selección de moto, fotos, odómetro, intervalo de aceite, servicios y estado manual de componentes.
-- Perfil, avatar, contactos de emergencia, sensibilidad de impacto y apertura de SMS con ubicación para que el usuario confirme el envío.
-- Registro e inicio de sesión, copia privada de datos, feed de rutas públicas y likes cuando Supabase está configurado.
+Supabase aloja Auth, la base Postgres, el feed y Storage. Las motos, servicios, contactos, perfil y rutas privadas se sincronizan por cuenta en `rider_backups`, protegida por RLS. Las rutas publicadas y sus puntos GPS se guardan en tablas del feed. Las fotos del tablero están en el bucket privado `moto-private`; sus URL de lectura caducan. Las fotos de perfil y moto se guardan en `moto-media`.
 
-## Límites que requieren decisiones antes de tiendas
+El equipo local ya está enlazado al proyecto de producción. Para otra instalación, enlaza tu proyecto y aplica las migraciones:
 
-- El SOS abre la aplicación de mensajes y requiere confirmación manual; iOS y Android no permiten que una app común envíe SMS silenciosamente. La detección usa el teléfono y no es un sistema de seguridad certificado. El acelerómetro puede no funcionar mientras la app está suspendida.
-- Los estados de aceite, cadena, frenos y llantas se derivan de registros manuales, no de sensores de la moto.
-- Las rutas públicas incluyen el trazado GPS; al publicar se recortan por defecto 200 m al inicio y al final. Esto no oculta por completo ubicaciones sensibles; el recorte puede desactivarse y el GPX descargado conserva el trazado íntegro.
-- Para lanzar: crea y configura el proyecto Supabase, prueba políticas RLS y permisos en teléfonos reales, publica aviso de privacidad/consentimiento de ubicación y completa las cuentas de tiendas.
+```bash
+npx supabase link --project-ref <PROJECT_REF>
+npx supabase db push --remote --dry-run
+npx supabase db push --remote --yes
+```
 
-El proyecto usa Expo SDK 57. Instala módulos nativos con `npx expo install` para respetar versiones compatibles.
+En `.env` local, configura los valores del proyecto:
+
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://<PROJECT_REF>.supabase.co
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<PUBLISHABLE_KEY>
+GOOGLE_MAPS_ANDROID_API_KEY=<ANDROID_MAPS_KEY>
+```
+
+Las dos variables de Supabase ya se registraron en EAS para `development`, `preview` y `production`. El archivo `.env` no se sube a Git. Para añadir la clave de Android a EAS, usa [Variables de entorno del proyecto](https://expo.dev/) en los tres entornos. El archivo `app.config.js` la incorpora en la configuración nativa durante la build. La publishable key es pública; nunca coloques la service role key en la app.
+
+## Funciones actuales
+
+- Bienvenida, cuenta obligatoria, aceptación de términos y privacidad, configuración de perfil y primera moto.
+- Hasta cinco motocicletas; catálogo de marcas y modelos con entrada manual y sugerencias enviadas al backend.
+- Foto de tablero en almacenamiento privado y kilometraje confirmado manualmente; historial de lecturas y seguimiento de servicios.
+- GPS y mapa durante la rodada, velocidad, distancia, inclinación, pausa, sensores, calibración, estadísticas por segmento y comparación con una ruta de referencia.
+- Feed real con publicación opcional, likes y tres rutas de demostración claramente marcadas. Los primeros y últimos 200 m se recortan por defecto al publicar.
+- Vista previa de una rodada, enlace de una ruta pública para abrirla en otra cuenta MotoTracer, compartir texto, exportar tarjeta PNG y GPX.
+- SOS rojo con cuenta regresiva de 30 segundos. La función `send-sos` de Supabase envía con Twilio automáticamente cuando tiene secretos configurados, GPS y contactos sincronizados. Si falla, se abre Mensajes y el usuario confirma el envío. La detección depende de los sensores y del estado de la app.
+- Respaldo local por cuenta, sincronización en la nube con estado visible, recuperación opcional de datos de la versión anterior y recuperación de rodada activa tras un reinicio.
+
+## Verificación y publicación
+
+```bash
+npx tsc --noEmit
+npm run lint
+npx expo-doctor
+npx expo export --platform android
+npx eas-cli@latest build --platform android --profile preview
+npx eas-cli@latest build --platform all --profile production
+```
+
+### Activar SMS automático con Twilio
+
+La función `send-sos` y su tabla de auditoría ya están desplegadas. Los secretos `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` y `TWILIO_FROM_NUMBER` ya figuran configurados en Supabase; los valores no son visibles desde el listado. `TWILIO_FROM_NUMBER` debe ser un número E.164, por ejemplo `+15551234567`, sin espacios, y pertenecer a la cuenta de Twilio con capacidad SMS. Desde **Perfil → Verificar Twilio** puedes comprobar credenciales, formato y número sin enviar mensajes. Para cambiar secretos, usa el panel de Supabase **Edge Functions → Secrets** o un archivo `.env.twilio` local, excluido por `.gitignore`, con `npx supabase secrets set --env-file .env.twilio --remote`. **No pongas el token en Expo, Git ni el chat.** Activa la confirmación de correo en Supabase Auth y prueba una alerta con números autorizados por tu cuenta de Twilio. La función limita un SOS aceptado cada cinco minutos y cinco intentos al día por cuenta; lee sólo los contactos guardados en el respaldo privado de ese usuario. Un SMS aceptado por Twilio aún puede fallar en la entrega.
+
+Antes de publicar en tiendas, configura la clave de Google Maps para Android; completa domicilio, dirección y teléfono del responsable en la política; prueba rutas, permisos de segundo plano, foto, SMS y restauración de datos en teléfonos reales; y revisa la política y términos con asesoría jurídica. Las rutas de demostración no se publican como usuarios reales.

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Modal, Pressable, Share, Text, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, Text, TextInput, View } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -51,9 +51,9 @@ export default function AnalyticsScreen() {
   const chartUnit: Record<ChartMetric, string> = { speed: 'km/h', lean: '°', gforce: 'G', braking: 'km/h por muestra' };
   const elevationGain = ride.coordinates.reduce((gain, point, index) => { const previous = ride.coordinates[index - 1]?.altitude; return previous != null && point.altitude != null ? gain + Math.max(0, point.altitude - previous) : gain; }, 0);
   const segments = segmentSummary(ride);
-  const comparison = ride.comparisonRideId ? rides.find((item) => item.id === ride.comparisonRideId) : undefined;
+  const comparison = ride.comparisonSnapshot ?? (ride.comparisonRideId ? rides.find((item) => item.id === ride.comparisonRideId) : undefined);
   const repeat = () => { startRide(ride.id); router.replace('/ride'); };
-  const share = () => Share.share({ message: `${ride.title}\n${ride.distanceKm.toFixed(1)} km · ${Math.round(ride.avgSpeed)} km/h promedio · ${Math.round(ride.maxSpeed)} km/h máximo · ${ride.durationSec} s` });
+  const share = () => router.push({ pathname: '/share-ride', params: { rideId: ride.id } });
   const exportGpx = async () => {
     if (ride.coordinates.length < 2) { Alert.alert('Ruta incompleta', 'Se necesitan dos puntos GPS como mínimo para exportar.'); return; }
     try {

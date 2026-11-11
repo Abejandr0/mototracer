@@ -14,7 +14,8 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "MotoTracer usa tu ubicación para grabar rutas mientras la rodada está abierta.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "MotoTracer puede continuar registrando tu ruta si bloqueas la pantalla durante la rodada.",
-        "NSMotionUsageDescription": "MotoTracer usa los sensores de movimiento para medir inclinación y detectar impactos."
+        "NSMotionUsageDescription": "MotoTracer usa los sensores de movimiento para medir inclinación y detectar impactos.",
+        "NSCameraUsageDescription": "MotoTracer usa la cámara para fotografiar el tablero y actualizar el odómetro."
       }
     },
     "android": {
@@ -51,7 +52,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "MotoTracer necesita acceso a tus fotos para añadir imágenes a tu perfil y a tus motos."
+          "photosPermission": "MotoTracer necesita acceso a tus fotos para añadir imágenes a tu perfil, motos y tablero.",
+          "cameraPermission": "MotoTracer necesita la cámara para fotografiar el tablero de tu moto."
         }
       ],
       "expo-sharing"

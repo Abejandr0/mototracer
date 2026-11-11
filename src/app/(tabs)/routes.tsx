@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, Share, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Colors } from '../../theme';
 import { Card, Header, Label, Page, screenStyles as s } from '../../components/Screen';
@@ -7,6 +7,7 @@ import { Ride, useAppData } from '../../providers/AppProvider';
 import { RouteMap } from '../../components/RouteMap';
 import { useAuth } from '../../providers/AuthProvider';
 import { supabase } from '../../services/supabase';
+import { demoRoutes } from '../../data/demoRoutes';
 
 type PublicRide = { id: string; owner_id: string; title: string; started_at: string; distance_km: number; duration_seconds: number; max_speed_kmh: number; average_speed_kmh: number; max_lean_left: number; max_lean_right: number; full_name: string; coordinates: { latitude: number; longitude: number; timestamp: number; speed: number; lean: number }[]; pointCount: number; likes: number; liked: boolean };
 
@@ -25,9 +26,6 @@ function trimPrivacyZones(points: Ride['coordinates'], privacy: boolean) {
   return from < to ? points.slice(from, to + 1) : [];
 }
 
-function routeCopy(ride: Ride) {
-  return `${ride.title}\n${ride.distanceKm.toFixed(1)} km · ${Math.round(ride.avgSpeed)} km/h promedio · ${Math.round(ride.maxSpeed)} km/h máximo\n${ride.durationSec} s · MotoTracer`;
-}
 export default function RoutesScreen() {
   const { rides, startRide } = useAppData();
   const { session, configured } = useAuth();
@@ -52,7 +50,7 @@ export default function RoutesScreen() {
   }, [session]);
   useEffect(() => { const timer = setTimeout(() => { void refreshFeed(); }, 0); return () => clearTimeout(timer); }, [refreshFeed]);
   const publish = async (ride: Ride) => {
-    if (!supabase || !session) { router.push('/profile'); return; }
+    if (!supabase || !session) { Alert.alert('Sin conexión con tu cuenta', 'Vuelve a iniciar sesión e inténtalo de nuevo.'); return; }
     setBusyRide(ride.id);
     let insertedId: string | undefined;
     try {
@@ -62,8 +60,8 @@ export default function RoutesScreen() {
         if (error) throw error;
         remoteId = data.id;
         insertedId = remoteId;
-        for (let start = 0; start < ride.coordinates.length; start += 500) {
-          const sharedCoordinates = trimPrivacyZones(ride.coordinates, privacyZones);
+        const sharedCoordinates = trimPrivacyZones(ride.coordinates, privacyZones);
+        for (let start = 0; start < sharedCoordinates.length; start += 500) {
           const points = sharedCoordinates.slice(start, start + 500).map((point, index) => ({ ride_id: remoteId!, owner_id: session.user.id, sequence: start + index, latitude: point.latitude, longitude: point.longitude, recorded_at: new Date(point.timestamp).toISOString(), speed_kmh: point.speed, lean_degrees: point.lean, g_force: point.gForce ?? null, altitude_m: point.altitude ?? null }));
           if (points.length) { const { error: pointsError } = await supabase.from('ride_points').insert(points); if (pointsError) throw pointsError; }
         }
@@ -97,15 +95,16 @@ export default function RoutesScreen() {
   return <Page>
     <Header title="Rutas" subtitle="Tus rodadas y las que compartes." />
     <Pressable onPress={() => router.push('/ride')} style={s.action}><Text style={s.actionText}>＋   GRABAR UNA RUTA</Text></Pressable>
-    <Card style={{ borderColor: 'rgba(0,229,255,.3)' }}><Label>COMUNIDAD</Label><Text style={{ color: Colors.textPrimary, fontSize: 18, fontWeight: '800' }}>Rutas de otros bikers</Text><Text style={s.muted}>{!configured ? 'Configura Supabase para activar el feed y la sincronización.' : !session ? 'Inicia sesión desde Mi perfil para ver y publicar rutas.' : feedLoading ? 'Cargando rutas compartidas…' : `${feed.length} rutas compartidas`}</Text><Pressable onPress={() => setPrivacyZones((value) => !value)} style={[s.row, { justifyContent: 'flex-start', gap: 8, marginTop: 8 }]}><Text style={{ color: privacyZones ? Colors.gpsOptimal : Colors.textSecondary, fontWeight: '900' }}>{privacyZones ? '✓' : '○'}</Text><Text style={s.muted}>Ocultar los primeros y últimos 200 m al publicar</Text></Pressable>{session && !feedLoading && feed.length === 0 ? <Text style={s.muted}>Todavía no hay rutas públicas. Publica una desde tu historial.</Text> : null}</Card>
-    {feed.map((ride) => <Card key={ride.id}><View style={s.row}><View style={{ flex: 1 }}><Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800' }}>{ride.title}</Text><Text style={s.muted}>{ride.full_name} · {new Date(ride.started_at).toLocaleDateString('es-CO')}</Text></View><Pressable onPress={() => void toggleLike(ride)}><Text style={{ color: ride.liked ? Colors.emergency : Colors.textSecondary, fontSize: 18 }}>♥ {ride.likes}</Text></Pressable></View><RouteMap coordinates={ride.coordinates} height={100} /><View style={[s.row, { justifyContent: 'flex-start', gap: 18 }]}><Text style={{ color: Colors.activeTelemetry, fontWeight: '800' }}>{ride.distance_km.toFixed(1)} km</Text><Text style={s.muted}>{Math.round(ride.average_speed_kmh)} km/h prom.</Text><Text style={s.muted}>{Math.round(ride.max_speed_kmh)} km/h máx.</Text><Text style={s.muted}>{Math.max(Math.abs(ride.max_lean_left), ride.max_lean_right).toFixed(0)}°</Text></View><Text style={{ color: Colors.textTertiary, fontSize: 11 }}>Trazado GPS compartido · {ride.pointCount} puntos</Text></Card>)}
+    <Card style={{ borderColor: 'rgba(0,229,255,.3)' }}><Label>COMUNIDAD</Label><Text style={{ color: Colors.textPrimary, fontSize: 18, fontWeight: '800' }}>Rutas de otros bikers</Text><Text style={s.muted}>{!configured ? 'Configura Supabase para activar el feed y la sincronización.' : feedLoading ? 'Cargando rutas compartidas…' : `${feed.length} rutas reales · 3 ejemplos`}</Text><Pressable onPress={() => setPrivacyZones((value) => !value)} style={[s.row, { justifyContent: 'flex-start', gap: 8, marginTop: 8 }]}><Text style={{ color: privacyZones ? Colors.gpsOptimal : Colors.textSecondary, fontWeight: '900' }}>{privacyZones ? '✓' : '○'}</Text><Text style={s.muted}>Ocultar los primeros y últimos 200 m al publicar</Text></Pressable></Card>
+    {demoRoutes.map(({ ride, name, initials, city }) => <Card key={ride.id} style={{ borderColor: '#315057' }}><View style={[s.row, { justifyContent: 'flex-start', gap: 10 }]}><View style={{ width: 39, height: 39, borderRadius: 20, backgroundColor: '#183D43', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: Colors.activeTelemetry, fontWeight: '900' }}>{initials}</Text></View><View style={{ flex: 1 }}><Text style={{ color: Colors.textPrimary, fontWeight: '800' }}>{name}</Text><Text style={s.muted}>{city} · ruta de demostración</Text></View><Text style={{ color: Colors.warning, fontSize: 10, fontWeight: '900' }}>DEMO</Text></View><Text style={{ color: Colors.textPrimary, fontSize: 19, fontWeight: '900' }}>{ride.title}</Text><RouteMap coordinates={ride.coordinates} height={135} /><View style={[s.row, { flexWrap: 'wrap', gap: 8 }]}><Text style={{ color: Colors.activeTelemetry, fontWeight: '800' }}>{ride.distanceKm.toFixed(1)} km</Text><Text style={s.muted}>{Math.round(ride.avgSpeed)} km/h prom.</Text><Text style={s.muted}>{Math.round(ride.maxSpeed)} km/h máx.</Text><Text style={s.muted}>{Math.round(ride.maxLeanRight)}°</Text><Text style={s.muted}>{Math.round(ride.durationSec / 60)} min</Text></View><Pressable onPress={() => Alert.alert('Repetir ruta de ejemplo', 'Esta ruta simulada se usará como referencia para comparar tus resultados.', [{ text: 'Cancelar' }, { text: 'Empezar', onPress: () => { startRide(undefined, ride); router.push('/ride'); } }])} style={s.secondary}><Text style={s.secondaryText}>Correr y comparar esta ruta</Text></Pressable></Card>)}
+    {feed.map((ride) => <Card key={ride.id}><View style={s.row}><View style={{ flex: 1 }}><Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800' }}>{ride.title}</Text><Text style={s.muted}>{ride.full_name} · {new Date(ride.started_at).toLocaleDateString('es-CO')}</Text></View><Pressable onPress={() => void toggleLike(ride)}><Text style={{ color: ride.liked ? Colors.emergency : Colors.textSecondary, fontSize: 18 }}>♥ {ride.likes}</Text></Pressable></View><RouteMap coordinates={ride.coordinates} height={115} /><View style={[s.row, { justifyContent: 'flex-start', flexWrap: 'wrap', gap: 12 }]}><Text style={{ color: Colors.activeTelemetry, fontWeight: '800' }}>{ride.distance_km.toFixed(1)} km</Text><Text style={s.muted}>{Math.round(ride.average_speed_kmh)} km/h prom.</Text><Text style={s.muted}>{Math.round(ride.max_speed_kmh)} km/h máx.</Text><Text style={s.muted}>{Math.max(Math.abs(ride.max_lean_left), ride.max_lean_right).toFixed(0)}°</Text><Text style={s.muted}>{Math.round(ride.duration_seconds / 60)} min</Text></View><Pressable onPress={() => { const reference: Ride = { id: ride.id, title: ride.title, startTime: ride.started_at, distanceKm: ride.distance_km, durationSec: ride.duration_seconds, avgSpeed: ride.average_speed_kmh, maxSpeed: ride.max_speed_kmh, maxLeanLeft: ride.max_lean_left, maxLeanRight: ride.max_lean_right, coordinates: ride.coordinates, speedSamples: ride.coordinates.map((point) => point.speed), speedSum: 0, speedCount: 0, pausedDurationMs: 0 }; startRide(undefined, reference); router.push('/ride'); }} style={s.secondary}><Text style={s.secondaryText}>Correr y comparar esta ruta</Text></Pressable></Card>)}
     <Label>MI HISTORIAL  ·  {rides.length}</Label>
     {rides.length === 0 ? <Card><Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '700' }}>Todavía no hay rutas</Text><Text style={s.muted}>Al finalizar una rodada se guardará aquí con sus estadísticas GPS.</Text></Card> : rides.map((ride) => <Card key={ride.id}>
       <View style={s.row}><View style={{ flex: 1 }}><Text style={{ color: Colors.textPrimary, fontSize: 17, fontWeight: '800' }}>{ride.title}</Text><Text style={s.muted}>{new Date(ride.startTime).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Text></View></View>
       <View style={[s.row, { justifyContent: 'flex-start', gap: 20, paddingVertical: 5 }]}><View><Label>Distancia</Label><Text style={{ color: Colors.activeTelemetry, fontWeight: '900', fontSize: 21 }}>{ride.distanceKm.toFixed(1)} km</Text></View><View><Label>Promedio</Label><Text style={{ color: Colors.textPrimary, fontWeight: '800', fontSize: 17 }}>{Math.round(ride.avgSpeed)} km/h</Text></View><View><Label>Inclinación</Label><Text style={{ color: Colors.textPrimary, fontWeight: '800', fontSize: 17 }}>{Math.max(Math.abs(ride.maxLeanLeft), ride.maxLeanRight).toFixed(0)}°</Text></View></View>
       <RouteMap coordinates={ride.coordinates} height={96} />
       <Text style={{ color: Colors.textTertiary, fontSize: 10 }}>TRAZADO GPS  ·  {ride.coordinates.length} puntos</Text>
-      <View style={{ flexDirection: 'row', gap: 8 }}><Pressable style={[s.secondary, { flex: 1 }]} onPress={() => Share.share({ message: routeCopy(ride) })}><Text style={s.secondaryText}>Compartir</Text></Pressable><Pressable disabled={busyRide === ride.id} style={[s.secondary, { flex: 1 }]} onPress={() => void publish(ride)}><Text style={s.secondaryText}>{busyRide === ride.id ? 'Actualizando…' : ride.remoteId ? ride.isPublic ? 'Retirar del feed' : 'Publicar ruta' : 'Publicar ruta'}</Text></Pressable><Pressable style={[s.secondary, { flex: 1 }]} onPress={() => Alert.alert('Repetir ruta', 'Se guardará esta ruta como referencia para comparar métricas.', [{ text: 'Ahora no', style: 'cancel' }, { text: 'Iniciar', onPress: () => { startRide(ride.id); router.push('/ride'); } }])}><Text style={s.secondaryText}>Correr ruta</Text></Pressable></View>
+      <View style={{ flexDirection: 'row', gap: 8 }}><Pressable style={[s.secondary, { flex: 1 }]} onPress={() => router.push({ pathname: '/share-ride', params: { rideId: ride.id } })}><Text style={s.secondaryText}>Compartir</Text></Pressable><Pressable disabled={busyRide === ride.id} style={[s.secondary, { flex: 1 }]} onPress={() => void publish(ride)}><Text style={s.secondaryText}>{busyRide === ride.id ? 'Actualizando…' : ride.remoteId ? ride.isPublic ? 'Retirar del feed' : 'Publicar ruta' : 'Publicar ruta'}</Text></Pressable><Pressable style={[s.secondary, { flex: 1 }]} onPress={() => Alert.alert('Repetir ruta', 'Se guardará esta ruta como referencia para comparar métricas.', [{ text: 'Ahora no', style: 'cancel' }, { text: 'Iniciar', onPress: () => { startRide(ride.id); router.push('/ride'); } }])}><Text style={s.secondaryText}>Correr ruta</Text></Pressable></View>
       <Pressable onPress={() => router.push({ pathname: '/analytics', params: { rideId: ride.id } })}><Text style={{ color: Colors.activeTelemetry, fontWeight: '700', textAlign: 'center', paddingVertical: 4 }}>Ver estadísticas completas  ›</Text></Pressable>
     </Card>)}
   </Page>;

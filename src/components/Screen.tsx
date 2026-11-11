@@ -10,7 +10,7 @@ export function Page({ children, scroll = true }: React.PropsWithChildren<{ scro
   </SafeAreaView>;
 }
 export function Header({ title, subtitle, right }: { title: string; subtitle?: string; right?: React.ReactNode }) {
-  return <View style={styles.header}><View><Text style={styles.brand}>MOTOTRACER</Text><Text style={styles.title}>{title}</Text>{subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}</View>{right}</View>;
+  return <View><Text style={styles.brand}>MOTOTRACER</Text><View style={styles.header}><View style={{ flex: 1 }}><Text style={styles.title}>{title}</Text>{subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}</View>{right}</View></View>;
 }
 export function Card({ children, style }: React.PropsWithChildren<{ style?: ViewStyle }>) { return <View style={[styles.card, style]}>{children}</View>; }
 export function Label({ children }: React.PropsWithChildren) { return <Text style={styles.label}>{children}</Text>; }
@@ -23,4 +23,4 @@ export const screenStyles = StyleSheet.create({
   metric: { color: Colors.textPrimary, fontSize: 24, fontWeight: '800' },
   muted: { color: Colors.textSecondary, fontSize: 13, lineHeight: 19 },
 });
-const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: Colors.background }, scroll: { paddingBottom: 28 }, content: { paddingHorizontal: Spacing.base, paddingTop: 12, gap: 14 }, header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }, brand: { color: Colors.textTertiary, fontSize: 10, fontWeight: '800', letterSpacing: 2 }, title: { color: Colors.textPrimary, fontSize: 27, fontWeight: '800', marginTop: 3 }, sub: { color: Colors.textSecondary, fontSize: 13, marginTop: 4 }, card: { backgroundColor: Colors.card, borderColor: Colors.border, borderWidth: 1, borderRadius: Radius.lg, padding: 16, gap: 10 }, label: { color: Colors.textTertiary, fontSize: 10, fontWeight: '800', letterSpacing: 1.3, textTransform: 'uppercase' } });
+const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: Colors.background }, scroll: { paddingBottom: 28 }, content: { paddingHorizontal: Spacing.base, paddingTop: 12, gap: 14 }, header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }, brand: { color: Colors.textTertiary, fontSize: 9, fontWeight: '800', letterSpacing: 2.3, textAlign: 'center', marginBottom: 13 }, title: { color: Colors.textPrimary, fontSize: 31, fontWeight: '900', marginTop: 3 }, sub: { color: Colors.textSecondary, fontSize: 13, marginTop: 4 }, card: { backgroundColor: Colors.card, borderColor: Colors.border, borderWidth: 1, borderRadius: Radius.lg, padding: 16, gap: 10 }, label: { color: Colors.textTertiary, fontSize: 10, fontWeight: '800', letterSpacing: 1.3, textTransform: 'uppercase' } });

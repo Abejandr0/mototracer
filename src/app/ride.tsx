@@ -7,6 +7,7 @@ import { useAppData } from '../providers/AppProvider';
 import { useSensors } from '../hooks/useSensors';
 import { Speedometer, LeanGauge } from '../components';
 import { Card, Header, Label, Page, screenStyles as s } from '../components/Screen';
+import { RouteMap } from '../components/RouteMap';
 import { RIDE_LOCATION_TASK, takeBackgroundLocationQueue } from '../services/backgroundLocationTask';
 
 function formatTime(seconds: number) { const h = Math.floor(seconds / 3600); const m = Math.floor(seconds % 3600 / 60); const sec = seconds % 60; return h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`; }
@@ -20,12 +21,13 @@ export default function RideScreen() {
   const [backgroundLocation, setBackgroundLocation] = useState(false);
   const [seconds, setSeconds] = useState(ride?.durationSec ?? 0);
   const fired = useRef(false);
+  const finishing = useRef(false);
   const leanRef = useRef(0);
   const gForceRef = useRef(1);
   const lastLocationTimestamp = useRef(0);
   useEffect(() => { leanRef.current = sensor.leanAngle; }, [sensor.leanAngle]);
   useEffect(() => { gForceRef.current = sensor.accelerationMagnitude; }, [sensor.accelerationMagnitude]);
-  useEffect(() => { if (!ride) startRide(); }, [ride, startRide]);
+  useEffect(() => { if (!ride && !finishing.current) startRide(); }, [ride, startRide]);
   useEffect(() => {
     if (!rideId || paused) return;
     let subscription: Location.LocationSubscription | undefined;
@@ -80,14 +82,15 @@ export default function RideScreen() {
     return () => clearInterval(id);
   }, [ride?.id, ride?.durationSec, paused]);
   useEffect(() => { updateRideLean(sensor.leanAngle); }, [sensor.leanAngle, updateRideLean]);
-  useEffect(() => { if (sensor.isCrashDetected && !fired.current) { fired.current = true; router.replace('/sos?crash=1'); } if (!sensor.isCrashDetected) fired.current = false; }, [sensor.isCrashDetected]);
+  useEffect(() => { if (sensor.isCrashDetected && !fired.current) { fired.current = true; router.push('/sos?crash=1'); } if (!sensor.isCrashDetected) fired.current = false; }, [sensor.isCrashDetected]);
   const speed = ride?.coordinates.at(-1)?.speed ?? 0;
   const lean = sensor.leanAngle;
-  const stop = () => Alert.alert('Finalizar rodada', 'Se guardarán las estadísticas capturadas por GPS.', [{ text: 'Seguir', style: 'cancel' }, { text: 'Finalizar', style: 'destructive', onPress: () => { finishRide(); router.replace('/analytics'); } }]);
+  const stop = () => Alert.alert('Finalizar rodada', 'Se guardarán las estadísticas capturadas por GPS.', [{ text: 'Seguir', style: 'cancel' }, { text: 'Finalizar', style: 'destructive', onPress: () => { finishing.current = true; finishRide(); router.replace('/analytics'); } }]);
   if (!ride) return <Page><Text style={s.muted}>Preparando rodada…</Text></Page>;
   return <Page scroll={false}>
     <Header title="En ruta" subtitle={paused ? 'Rodada en pausa' : 'Lecturas en vivo'} right={<View style={{ borderWidth: 1, borderColor: gps === 'listo' ? Colors.gpsOptimal : Colors.warning, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: gps === 'listo' ? Colors.gpsOptimal : Colors.warning, fontWeight: '800', fontSize: 10 }}>GPS {gps.toUpperCase()}</Text></View>} />
     <View style={[s.row, { gap: 8 }]}>{[{ l: 'TIEMPO', v: formatTime(seconds) }, { l: 'DISTANCIA', v: `${ride.distanceKm.toFixed(2)} km` }, { l: 'MÁXIMO', v: `${Math.round(ride.maxSpeed)} km/h` }].map((x) => <Card key={x.l} style={{ flex: 1, alignItems: 'center', paddingHorizontal: 7 }}><Label>{x.l}</Label><Text style={{ color: Colors.textPrimary, fontWeight: '800', fontSize: 15 }}>{x.v}</Text></Card>)}</View>
+    <RouteMap coordinates={ride.coordinates} height={Math.min(150, width * .38)} follow />
     <View style={{ flex: 1, minHeight: 220, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4 }}>
       <Speedometer speed={speed} size={Math.min(width * .53, 230)} />
       <View style={{ alignItems: 'center', gap: 0 }}><LeanGauge angle={lean} size={Math.min(width * .4, 168)} /><Text style={{ color: Colors.textTertiary, fontSize: 9, fontWeight: '800', letterSpacing: 1 }}>ÁNGULO DE INCLINACIÓN</Text></View>

@@ -1,49 +1,52 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Animated, Pressable, ScrollView, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import * as SMS from 'expo-sms';
 import { useLocalSearchParams, router } from 'expo-router';
-import { Colors } from '../theme';
 import { useAppData } from '../providers/AppProvider';
-import { Card, Header, Page, screenStyles as s } from '../components/Screen';
+import { supabase } from '../services/supabase';
 
 export default function SOSScreen() {
   const { crash } = useLocalSearchParams<{ crash?: string }>();
   const { contacts } = useAppData();
   const [remaining, setRemaining] = useState(crash === '1' ? 30 : 0);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [sent, setSent] = useState(false);
-  const [composerOpened, setComposerOpened] = useState(false);
-  useEffect(() => { Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then(setLocation).catch(() => undefined); }, []);
-  useEffect(() => {
-    if (remaining <= 0 || sent) return;
-    const timer = setTimeout(() => setRemaining((value) => value - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [remaining, sent]);
+  const [attempted, setAttempted] = useState(false); const [sent, setSent] = useState(false);
+  const [status, setStatus] = useState(''); const sendingRef = useRef(false);
+  const [pulse] = useState(() => new Animated.Value(.35));
+  useEffect(() => { const animation = Animated.loop(Animated.sequence([Animated.timing(pulse, { toValue: 1, duration: 650, useNativeDriver: true }), Animated.timing(pulse, { toValue: .35, duration: 650, useNativeDriver: true })])); animation.start(); return () => animation.stop(); }, [pulse]);
+  useEffect(() => { Location.requestForegroundPermissionsAsync().then((permission) => permission.granted ? Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }).then(setLocation) : undefined).catch(() => undefined); }, []);
+  useEffect(() => { if (remaining <= 0 || attempted) return; const timer = setTimeout(() => setRemaining((value) => value - 1), 1000); return () => clearTimeout(timer); }, [remaining, attempted]);
   const send = useCallback(async () => {
-    if (!contacts.length) { Alert.alert('Falta un contacto', 'Añade un contacto de emergencia desde tu perfil para usar el SOS.', [{ text: 'Volver', onPress: () => router.back() }, { text: 'Ir al perfil', onPress: () => router.replace('/(tabs)/profile') }]); return; }
-    const coords = location?.coords;
-    const maps = coords ? `https://maps.google.com/?q=${coords.latitude},${coords.longitude}` : 'Ubicación GPS no disponible';
-    const message = `SOS MotoTracer: necesito ayuda. Mi ubicación actual: ${maps}`;
+    if (sendingRef.current || sent) return;
+    sendingRef.current = true;
+    setAttempted(true);
+    setStatus('Enviando alerta…');
     try {
+      if (!contacts.length) { Alert.alert('Falta un contacto SOS', 'Añade un contacto de emergencia desde tu perfil.', [{ text: 'Perfil', onPress: () => router.replace('/(tabs)/profile') }]); setStatus('Sin contactos SOS'); return; }
+      const coords = location?.coords;
+      if (supabase && coords) {
+        const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 12000);
+        try {
+          const { data, error } = await supabase.functions.invoke<{ accepted: number; failed: number; total: number }>('send-sos', { body: { latitude: coords.latitude, longitude: coords.longitude, contactIds: contacts.map((contact) => contact.id) }, signal: controller.signal });
+          if (!error && data?.accepted) { setSent(true); setStatus(`Twilio aceptó ${data.accepted} de ${data.total} SMS${data.failed ? '; revisa los restantes' : ''}.`); return; }
+        } catch { /* Open the phone's SMS composer below when the backend cannot be reached. */ }
+        finally { clearTimeout(timeout); }
+      }
+      const maps = coords ? `https://maps.google.com/?q=${coords.latitude},${coords.longitude}` : 'Ubicación GPS no disponible';
+      const message = `SOS MotoTracer: necesito ayuda. Mi ubicación actual: ${maps}`;
       if (!await SMS.isAvailableAsync()) { Alert.alert('SMS no disponible', 'Este dispositivo no tiene una aplicación de mensajes compatible.'); return; }
       const result = await SMS.sendSMSAsync(contacts.map((contact) => contact.phone), message);
-      setComposerOpened(result.result !== 'cancelled');
       setSent(result.result === 'sent');
-    } catch { Alert.alert('No se pudo abrir Mensajes', 'Verifica que tu teléfono tenga una aplicación de SMS configurada.'); }
-  }, [contacts, location]);
-  const cancel = () => router.back();
-  useEffect(() => {
-    if (crash === '1' && remaining === 0 && !sent) {
-      const timer = setTimeout(() => { void send(); }, 0);
-      return () => clearTimeout(timer);
-    }
-  }, [crash, remaining, sent, send]);
-  return <Page>
-    <Header title="Emergencia SOS" subtitle={crash === '1' ? 'Se detectó un impacto fuerte.' : 'Envía tu ubicación a tus contactos.'} />
-    <Card style={{ alignItems: 'center', paddingVertical: 25, borderColor: Colors.emergency }}><View style={{ width: 176, height: 176, borderRadius: 90, borderWidth: 5, borderColor: Colors.emergency, alignItems: 'center', justifyContent: 'center', backgroundColor: '#24151A' }}><Text style={{ color: Colors.emergency, fontSize: 52, fontWeight: '900' }}>{crash === '1' && !composerOpened ? remaining : 'SOS'}</Text><Text style={{ color: Colors.textSecondary, fontWeight: '700', fontSize: 12 }}>{crash === '1' && !composerOpened ? 'SEGUNDOS' : sent ? 'ENVIADO' : composerOpened ? 'MENSAJE PREPARADO' : 'LISTO PARA ENVIAR'}</Text></View><Text style={{ color: Colors.textPrimary, fontSize: 18, fontWeight: '800', textAlign: 'center', marginTop: 20 }}>{sent ? 'SOS enviado' : composerOpened ? 'Confirma el envío en Mensajes' : 'Tu mensaje incluirá la ubicación actual'}</Text><Text style={[s.muted, { textAlign: 'center' }]}>{location ? `${location.coords.latitude.toFixed(5)}, ${location.coords.longitude.toFixed(5)}` : 'Buscando ubicación…'} · {contacts.length} contactos</Text></Card>
-    <Pressable onPress={send} style={[s.action, { backgroundColor: Colors.emergency }]}><Text style={s.actionText}>{crash === '1' && remaining > 0 ? 'ENVIAR SOS AHORA' : sent ? 'ABRIR MENSAJES DE NUEVO' : 'ABRIR MENSAJES Y ENVIAR'}</Text></Pressable>
-    {crash === '1' && !sent ? <Pressable onPress={cancel} style={s.secondary}><Text style={s.secondaryText}>Estoy bien · Cancelar alerta</Text></Pressable> : <Pressable onPress={cancel} style={s.secondary}><Text style={s.secondaryText}>Volver a la rodada</Text></Pressable>}
-    <Text style={{ color: Colors.textTertiary, fontSize: 11, lineHeight: 16, textAlign: 'center' }}>MotoTracer abre la aplicación de mensajes; debes confirmar el envío. La detección de impactos puede fallar y no sustituye los servicios de emergencia.</Text>
-  </Page>;
+      setStatus(result.result === 'sent' ? 'Mensaje enviado desde tu teléfono.' : 'Confirma el envío en Mensajes.');
+    } catch { setStatus('No se pudo enviar la alerta.'); Alert.alert('No se pudo abrir Mensajes', 'Comprueba que tu teléfono tenga una aplicación de SMS configurada.'); }
+    finally { sendingRef.current = false; }
+  }, [contacts, location, sent]);
+  useEffect(() => { if (crash === '1' && remaining === 0 && !attempted) { const timer = setTimeout(() => { void send(); }, 0); return () => clearTimeout(timer); } }, [crash, remaining, attempted, send]);
+  return <SafeAreaView style={{ flex: 1, backgroundColor: '#3D0710' }}><ScrollView contentContainerStyle={{ flexGrow: 1, padding: 22, justifyContent: 'space-between', gap: 26 }}>
+    <View><Text style={{ color: '#FFC3CC', fontSize: 10, letterSpacing: 2, textAlign: 'center', fontWeight: '900' }}>MOTOTRACER · EMERGENCIA</Text><Text style={{ color: '#fff', fontSize: 31, fontWeight: '900', marginTop: 20 }}>Alerta SOS</Text><Text style={{ color: '#FFD0D5', fontSize: 15, marginTop: 7 }}>{crash === '1' ? 'Detectamos un posible impacto fuerte.' : 'Prepara tu ubicación para tus contactos.'}</Text></View>
+    <View style={{ alignItems: 'center', gap: 16 }}><Animated.View style={{ width: 220, height: 220, borderRadius: 110, borderWidth: 7, borderColor: '#FF4560', backgroundColor: '#9C102A', alignItems: 'center', justifyContent: 'center', opacity: pulse }}><Text style={{ color: '#fff', fontSize: 67, fontWeight: '900' }}>SOS</Text></Animated.View><Text style={{ color: '#fff', fontSize: 45, fontWeight: '900' }}>{crash === '1' && !attempted ? remaining : '●'}</Text><Text style={{ color: '#FFD0D5', fontSize: 15, textAlign: 'center' }}>{crash === '1' && !attempted ? 'segundos antes de enviar la alerta' : status || 'Listo para enviar'}</Text><Text style={{ color: '#FFB5C1', fontSize: 12, textAlign: 'center' }}>{location ? `${location.coords.latitude.toFixed(5)}, ${location.coords.longitude.toFixed(5)}` : 'Buscando ubicación…'} · {contacts.length} contactos</Text></View>
+    <View style={{ gap: 12 }}><Pressable disabled={sent} onPress={() => void send()} style={{ padding: 17, borderRadius: 13, backgroundColor: '#FF1744', alignItems: 'center', opacity: sent ? .5 : 1 }}><Text style={{ color: '#fff', fontWeight: '900' }}>{sent ? 'ALERTA PROCESADA' : remaining > 0 ? 'ENVIAR SOS AHORA' : 'ENVIAR SOS'}</Text></Pressable><Pressable onPress={() => router.back()} style={{ padding: 16, borderRadius: 13, backgroundColor: '#6D1A29', alignItems: 'center' }}><Text style={{ color: '#fff', fontWeight: '800' }}>{crash === '1' ? 'ESTOY BIEN · CANCELAR' : 'VOLVER'}</Text></Pressable><Text style={{ color: '#FFC3CC', fontSize: 11, lineHeight: 17, textAlign: 'center' }}>Twilio envía automáticamente cuando está configurado y el GPS está disponible. Si falla, MotoTracer abre Mensajes para que confirmes el envío. La detección no sustituye a emergencias.</Text></View>
+  </ScrollView></SafeAreaView>;
 }
