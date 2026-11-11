@@ -1,6 +1,7 @@
+import { Text } from '../components/LocalizedText';
 import { usePreferences } from '../providers/PreferencesProvider';
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Card, Header, Page } from '../components/Screen';
 import { Colors } from '../theme';

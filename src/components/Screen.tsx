@@ -1,5 +1,6 @@
+import { Text } from './LocalizedText';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { ScrollView, StyleSheet, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Radius, Spacing } from '../theme';
 import { usePreferences } from '../providers/PreferencesProvider';
@@ -12,11 +13,11 @@ export function Page({ children, scroll = true }: React.PropsWithChildren<{ scro
   </SafeAreaView>;
 }
 export function Header({ title, subtitle, right }: { title: string; subtitle?: string; right?: React.ReactNode }) {
-  const { t, largeText } = usePreferences();
-  return <View><Text style={[styles.brand, { color: Colors.textTertiary }]}>MOTOTRACER</Text><View style={styles.header}><View style={{ flex: 1 }}><Text style={[styles.title, { color: Colors.textPrimary, fontSize: largeText ? 35 : 31 }]}>{t(title)}</Text>{subtitle ? <Text style={[styles.sub, { color: Colors.textSecondary, fontSize: largeText ? 16 : 13 }]}>{t(subtitle)}</Text> : null}</View>{right}</View></View>;
+  const { t } = usePreferences();
+  return <View><Text style={[styles.brand, { color: Colors.textTertiary }]}>MOTOTRACER</Text><View style={styles.header}><View style={{ flex: 1 }}><Text style={[styles.title, { color: Colors.textPrimary, fontSize: 31 }]}>{t(title)}</Text>{subtitle ? <Text style={[styles.sub, { color: Colors.textSecondary, fontSize: 13 }]}>{t(subtitle)}</Text> : null}</View>{right}</View></View>;
 }
 export function Card({ children, style }: React.PropsWithChildren<{ style?: ViewStyle }>) { usePreferences(); return <View style={[styles.card, { backgroundColor: Colors.card, borderColor: Colors.border }, style]}>{children}</View>; }
-export function Label({ children }: React.PropsWithChildren) { const { t, largeText } = usePreferences(); return <Text style={[styles.label, { color: Colors.textTertiary, fontSize: largeText ? 12 : 10 }]}>{typeof children === 'string' ? t(children) : children}</Text>; }
+export function Label({ children }: React.PropsWithChildren) { const { t } = usePreferences(); return <Text style={[styles.label, { color: Colors.textTertiary, fontSize: 10 }]}>{typeof children === 'string' ? t(children) : children}</Text>; }
 const makeScreenStyles = () => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   action: { backgroundColor: Colors.primaryAction, paddingVertical: 15, paddingHorizontal: 18, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },

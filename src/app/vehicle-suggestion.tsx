@@ -1,6 +1,7 @@
+import { Text, TextInput } from '../components/LocalizedText';
 import { usePreferences } from '../providers/PreferencesProvider';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme';

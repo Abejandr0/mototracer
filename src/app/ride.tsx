@@ -1,6 +1,7 @@
+import { Text } from '../components/LocalizedText';
 import { usePreferences } from '../providers/PreferencesProvider';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, AppState, Platform, Text, View, useWindowDimensions } from 'react-native';
+import { Alert, AppState, Platform, View, useWindowDimensions } from 'react-native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { Colors } from '../theme';

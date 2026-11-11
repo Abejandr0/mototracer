@@ -10,7 +10,7 @@ import { PreferencesProvider, usePreferences } from '../providers/PreferencesPro
 import '../services/backgroundLocationTask';
 
 function AppStack() {
-  const { resolvedTheme } = usePreferences();
+  const { resolvedTheme, reduceMotion } = usePreferences();
   const { session, loading } = useAuth();
   const { ready, profileComplete, vehicles } = useAppData();
   const pathname = usePathname();
@@ -22,7 +22,7 @@ function AppStack() {
     if (['/', '/welcome', '/auth', '/profile-setup'].includes(pathname)) router.replace('/(tabs)');
   }, [session, loading, ready, profileComplete, vehicles.length, pathname]);
   return <><StatusBar style={resolvedTheme === 'light' ? 'dark' : 'light'} />
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background }, animation: 'fade' }}>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background }, animation: reduceMotion ? 'none' : 'fade' }}>
       <Stack.Screen name="index" /><Stack.Screen name="welcome" /><Stack.Screen name="auth" /><Stack.Screen name="email-pending" /><Stack.Screen name="auth-callback" /><Stack.Screen name="legal" /><Stack.Screen name="profile-setup" /><Stack.Screen name="vehicle-form" /><Stack.Screen name="vehicle-suggestion" /><Stack.Screen name="service-form" /><Stack.Screen name="odometer" /><Stack.Screen name="share-ride" /><Stack.Screen name="shared-route" /><Stack.Screen name="edit-profile" /><Stack.Screen name="contact-form" /><Stack.Screen name="settings" />
       <Stack.Screen name="(tabs)" /><Stack.Screen name="ride" options={{ gestureEnabled: false }} />
       <Stack.Screen name="analytics" /><Stack.Screen name="calibration" />

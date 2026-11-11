@@ -1,6 +1,7 @@
+import { Text } from '../../components/LocalizedText';
 import { usePreferences } from '../../providers/PreferencesProvider';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Colors } from '../../theme';
 import { Card, Header, Label, Page, screenStyles as s } from '../../components/Screen';

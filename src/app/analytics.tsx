@@ -1,6 +1,7 @@
+import { Text, TextInput } from '../components/LocalizedText';
 import { usePreferences } from '../providers/PreferencesProvider';
 import React, { useState } from 'react';
-import { Alert, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, View } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -54,7 +55,7 @@ export default function AnalyticsScreen() {
   };
   return <Page>
     <Header title="Estadísticas" subtitle={new Date(ride.startTime).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })} />
-    <Card style={{ backgroundColor: '#111A20' }}><View style={[s.row, { alignItems: 'flex-start' }]}><View><Label>RESUMEN DE RUTA</Label><Text style={{ color: Colors.textPrimary, fontSize: 19, fontWeight: '800', marginTop: 5 }}>{ride.title}</Text></View><Pressable onPress={() => { setTitleDraft(ride.title); setEditing(true); }}><Text style={{ color: Colors.activeTelemetry, fontWeight: '700', fontSize: 12 }}>Editar</Text></Pressable></View>
+    <Card style={{ backgroundColor: Colors.card }}><View style={[s.row, { alignItems: 'flex-start' }]}><View><Label>RESUMEN DE RUTA</Label><Text style={{ color: Colors.textPrimary, fontSize: 19, fontWeight: '800', marginTop: 5 }}>{ride.title}</Text></View><Pressable onPress={() => { setTitleDraft(ride.title); setEditing(true); }}><Text style={{ color: Colors.activeTelemetry, fontWeight: '700', fontSize: 12 }}>Editar</Text></Pressable></View>
       <RouteMap coordinates={ride.coordinates} height={140} />
       <View style={[s.row, { paddingTop: 4 }]}><View><Label>DISTANCIA</Label><Text style={{ color: Colors.activeTelemetry, fontSize: 23, fontWeight: '900' }}>{ride.distanceKm.toFixed(2)} km</Text></View><View><Label>DURACIÓN</Label><Text style={{ color: Colors.textPrimary, fontSize: 20, fontWeight: '800' }}>{Math.floor(ride.durationSec / 60)}:{String(ride.durationSec % 60).padStart(2, '0')}</Text></View></View>
     </Card>

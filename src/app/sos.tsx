@@ -1,5 +1,6 @@
+import { Text } from '../components/LocalizedText';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Animated, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import * as SMS from 'expo-sms';

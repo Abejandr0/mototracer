@@ -1,5 +1,6 @@
+import { Text } from './LocalizedText';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, Text, View } from 'react-native';
+import { Animated, Pressable, View } from 'react-native';
 import { Colors } from '../theme';
 import { usePreferences } from '../providers/PreferencesProvider';
 

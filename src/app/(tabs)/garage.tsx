@@ -1,6 +1,7 @@
+import { Text } from '../../components/LocalizedText';
 import { usePreferences } from '../../providers/PreferencesProvider';
 import React from 'react';
-import { Alert, Image, Pressable, Text, View } from 'react-native';
+import { Alert, Image, Pressable, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { Colors } from '../../theme';

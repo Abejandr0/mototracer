@@ -1,6 +1,7 @@
+import { Text } from '../components/LocalizedText';
 import { usePreferences } from '../providers/PreferencesProvider';
 import React from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Colors } from '../theme';
 import { useAuth } from '../providers/AuthProvider';

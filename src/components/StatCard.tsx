@@ -1,5 +1,6 @@
+import { Text } from './LocalizedText';
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle } from 'react-native';
 import { Colors, Spacing, Radius } from '../theme';
 
 interface StatCardProps {

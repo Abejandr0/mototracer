@@ -1,7 +1,8 @@
+import { Text } from '../components/LocalizedText';
 import { usePreferences } from '../providers/PreferencesProvider';
 import React, { useEffect, useRef, useState } from 'react';
 import { Accelerometer, Gyroscope } from 'expo-sensors';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Colors } from '../theme';
 import { Card, Header, Label, Page, screenStyles as s } from '../components/Screen';

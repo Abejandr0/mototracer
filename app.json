@@ -6,7 +6,7 @@
     "scheme": "mototracer",
     "orientation": "default",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "backgroundColor": "#0D0F12",
     "ios": {
       "bundleIdentifier": "com.abejandro.mototracer",
@@ -36,6 +36,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-system-ui",
       "expo-sensors",
       [
         "expo-location",

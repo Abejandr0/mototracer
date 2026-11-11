@@ -63,6 +63,12 @@ Las dos variables de Supabase ya se registraron en EAS para `development`, `prev
 - Respaldo local por cuenta, sincronización en la nube con estado visible, recuperación opcional de datos de la versión anterior y recuperación de rodada activa tras un reinicio.
 - Ajustes de tema claro/oscuro/sistema, contraste, tamaño de texto, reducción de movimiento e inglés parcial para navegación y pantallas principales.
 
+El idioma inicial ahora es inglés. El selector ofrece español y traducciones parciales a portugués y francés; estas dos últimas todavía no cubren todas las pantallas. Los controles de texto grande, contraste alto y movimiento reducido se aplican desde un componente común. Cambiar al tema del sistema requiere la nueva build que incluye expo-system-ui.
+
+### Música durante la rodada
+
+MotoTracer no puede controlar de forma general Spotify, Apple Music y otros reproductores desde una sola API del sistema. Cada servicio debe autorizar su propia integración. Spotify ofrece App Remote para Android e iOS, que requiere registro OAuth y consentimiento del usuario; la integración todavía no está incluida. No se muestran controles falsos en la pantalla de rodada.
+
 ### Confirmación de correo
 
 La confirmación está activada en Supabase y el enlace de retorno `mototracer://auth-callback` ya está registrado en el proyecto de producción. La app admite enlace profundo, reenvío y código OTP. **El proyecto aún no tiene SMTP propio**: el servicio de correo predeterminado de Supabase está limitado a direcciones autorizadas del equipo, así que el registro de usuarios externos no se puede validar por correo hasta configurarlo. En [Supabase → Authentication → SMTP Settings](https://supabase.com/dashboard/project/mpeswbnmurnzjhklmctt/auth/smtp), configura un proveedor SMTP (por ejemplo Resend, SendGrid o SES) y verifica el dominio remitente. No coloques contraseñas SMTP en Git ni en la app. Después prueba registro y confirmación en una development build instalada en Android y iPhone; el enlace debe abrir MotoTracer. El idioma inglés de esta versión es parcial.
