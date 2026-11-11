@@ -14,6 +14,7 @@ import { RIDE_LOCATION_TASK, takeBackgroundLocationQueue } from '../services/bac
 import { distanceMeters, GpsFix, speedFromFixes } from '../services/rideTelemetry';
 import { HoldAction } from '../components/HoldAction';
 import { segmentLengthKm, summarizeSegments } from '../services/rideStats';
+import { MediaControlsBar } from '../components/MediaControlsBar';
 
 function formatTime(seconds: number) { const h = Math.floor(seconds / 3600); const m = Math.floor(seconds % 3600 / 60); const sec = seconds % 60; return h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`; }
 export default function RideScreen() {
@@ -113,6 +114,7 @@ export default function RideScreen() {
     </View>
     <View style={[s.row, { gap: 8 }]}>{[{ label: 'VELOCIDAD PROM.', value: `${Math.round(ride.avgSpeed)} km/h` }, { label: 'INCLINACIÓN MÁX.', value: `${Math.max(Math.abs(ride.maxLeanLeft), ride.maxLeanRight).toFixed(0)}°` }, { label: 'ACELERACIÓN', value: `${sensor.accelerationMagnitude.toFixed(2)} G` }].map((x) => <Card key={x.label} style={{ flex: 1, alignItems: 'center', paddingHorizontal: 4 }}><Text style={{ color: Colors.textTertiary, fontSize: 8, fontWeight: '700', textAlign: 'center' }}>{x.label}</Text><Text style={{ color: Colors.activeTelemetry, fontSize: 15, fontWeight: '800' }}>{x.value}</Text></Card>)}</View>
     {currentSegment ? <Text style={{ color: Colors.textSecondary, fontSize: 11, textAlign: 'center' }}>Tramo {liveSegments.length}: {currentSegment.distanceKm.toFixed(1)} km · {Math.round(currentSegment.avgSpeed)} km/h prom. · {Math.round(currentSegment.maxSpeed)} km/h pico · {Math.max(Math.abs(currentSegment.maxLeanLeft), currentSegment.maxLeanRight).toFixed(0)}°</Text> : null}
+    <MediaControlsBar />
     {gps === 'sin permiso' ? <Text style={{ color: Colors.warning, fontSize: 12, textAlign: 'center' }}>Ubicación desactivada: no se guardarán velocidad ni trazado GPS.</Text> : null}
     <Text style={{ color: Colors.textTertiary, fontSize: 10, textAlign: 'center' }}>Mantén presionado 2 segundos para pausar, pedir SOS o terminar.</Text>
     <View style={[s.row, { gap: 8 }]}><HoldAction label={paused ? 'CONTINUAR' : 'PAUSAR'} onComplete={app.pauseRide} color={Colors.activeTelemetry} /><HoldAction label="SOS" onComplete={() => router.push('/sos')} color={Colors.emergency} /><HoldAction label="TERMINAR" onComplete={stop} /></View>

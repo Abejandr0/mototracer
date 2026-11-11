@@ -57,7 +57,8 @@
           "cameraPermission": "MotoTracer necesita la cámara para fotografiar el tablero de tu moto."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "./plugins/with-media-controls"
     ],
     "experiments": {
       "typedRoutes": true

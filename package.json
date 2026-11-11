@@ -61,5 +61,10 @@
     "lint": "expo lint",
     "test:logic": "node --test tests/*.test.mjs"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "autolinking": {
+      "nativeModulesDir": "./modules"
+    }
+  }
 }

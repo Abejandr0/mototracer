@@ -65,9 +65,11 @@ Las dos variables de Supabase ya se registraron en EAS para `development`, `prev
 
 El idioma inicial ahora es inglés. El selector ofrece español y traducciones parciales a portugués y francés; estas dos últimas todavía no cubren todas las pantallas. Los controles de texto grande, contraste alto y movimiento reducido se aplican desde un componente común. Cambiar al tema del sistema requiere la nueva build que incluye expo-system-ui.
 
-### Música durante la rodada
+### Controles multimedia durante la rodada
 
-MotoTracer no puede controlar de forma general Spotify, Apple Music y otros reproductores desde una sola API del sistema. Cada servicio debe autorizar su propia integración. Spotify ofrece App Remote para Android e iOS, que requiere registro OAuth y consentimiento del usuario; la integración todavía no está incluida. No se muestran controles falsos en la pantalla de rodada.
+En Android, la barra de la pantalla de rodada consulta la sesión multimedia activa (título, artista y estado) y envía pausa/reproducción, pista anterior y siguiente. Para habilitarla, el usuario debe conceder acceso de notificaciones desde Ajustes de Android; MotoTracer no lee notificaciones ni guarda o sube metadatos de música. Conviene habilitarlo antes de salir y usar los controles únicamente cuando la moto esté detenida de forma segura. Requiere una nueva development build por el módulo nativo `MotoTracerMediaControls`.
+
+El control genérico no está disponible en iOS: iOS no permite que una app lea y controle el reproductor de otra app. Android limita la disponibilidad a reproductores que publiquen una sesión multimedia activa y los comandos que esa sesión admita; no todos los reproductores exponen todas las acciones.
 
 ### Confirmación de correo
 
