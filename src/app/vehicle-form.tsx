@@ -27,8 +27,9 @@ export default function VehicleFormScreen() {
   const models = (motorcycleCatalog[make] ?? []).filter((name) => name.toLowerCase().includes(modelQuery.toLowerCase()));
   const pickPhoto = async () => { const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [16, 9], quality: .85 }); if (!result.canceled && result.assets[0]?.uri) setNewPhoto(result.assets[0].uri); };
   const back = () => {
+    if (setup) { router.replace('/(tabs)'); return; }
     if (router.canGoBack()) router.back();
-    else router.replace(setup ? '/profile-setup' : '/(tabs)/garage');
+    else router.replace('/(tabs)/garage');
   };
   const save = async () => {
     const km = Number(odometer), serviceInterval = Number(interval);
@@ -47,7 +48,7 @@ export default function VehicleFormScreen() {
   const photo = newPhoto ?? existingPhoto;
   const deleteExisting = () => existing && Alert.alert('Eliminar motocicleta', 'Se eliminarán sus servicios, fotos y lecturas de odómetro. Las rodadas guardadas permanecerán.', [{ text: 'Cancelar' }, { text: 'Eliminar', style: 'destructive', onPress: () => { void (async () => { try { await deleteUserImages([existing.photoUri, ...app.odometerEntries.filter((entry) => entry.vehicleId === existing.id).map((entry) => entry.photoUri)]); app.deleteVehicle(existing.id); router.replace('/(tabs)/garage'); } catch (cause) { Alert.alert('No se pudo eliminar', cause instanceof Error ? cause.message : 'Intenta de nuevo.'); } })(); } }]);
   return <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingBottom: 100, gap: 13 }}>
-    <Pressable onPress={back} style={{ alignSelf: 'flex-start', paddingVertical: 4 }}><Text style={{ color: Colors.activeTelemetry, fontWeight: '700' }}>‹ {existing ? 'Garage' : 'Back'}</Text></Pressable>
+    <Pressable accessibilityRole="button" onPress={back} style={{ alignSelf: 'flex-start', paddingVertical: 8, paddingRight: 14 }}><Text style={{ color: Colors.activeTelemetry, fontWeight: '800' }}>‹ {setup ? 'Exit setup' : existing ? 'Garage' : 'Back'}</Text></Pressable>
     {setup ? <Text style={{ color: Colors.activeTelemetry, fontWeight: '900', letterSpacing: 2 }}>TU GARAJE · 2 DE 2</Text> : null}
     {existing ? <>
       <Text style={{ color: Colors.textPrimary, fontSize: 30, fontWeight: '900' }}>Vehicle details</Text><Text style={s.muted}>Update this motorcycle’s identity, odometer and maintenance interval.</Text>
@@ -84,6 +85,7 @@ export default function VehicleFormScreen() {
     </>}
     {error ? <Text style={{ color: Colors.emergency }}>{error}</Text> : null}
     <Pressable disabled={busy} onPress={() => void save()} style={[s.action, { opacity: busy ? .5 : 1 }]}><Text style={s.actionText}>{busy ? 'SAVING…' : existing ? 'SAVE VEHICLE CHANGES' : 'ADD TO GARAGE'}</Text></Pressable>
+    {setup ? <Pressable accessibilityRole="button" onPress={() => router.replace('/(tabs)')} style={[s.secondary, { minHeight: 48 }]}><Text style={s.secondaryText}>SKIP FOR NOW</Text></Pressable> : null}
     {existing ? <Pressable onPress={deleteExisting} style={[s.secondary, { borderColor: Colors.emergency }]}><Text style={{ color: Colors.emergency, fontWeight: '800' }}>DELETE MOTORCYCLE</Text></Pressable> : null}
   </ScrollView></KeyboardAvoidingView></SafeAreaView>;
 }

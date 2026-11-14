@@ -13,16 +13,15 @@ import '../services/backgroundLocationTask';
 function AppStack() {
   const { resolvedTheme, reduceMotion } = usePreferences();
   const { session, loading } = useAuth();
-  const { ready, profileComplete, vehicles } = useAppData();
+  const { ready, profileComplete } = useAppData();
   const pathname = usePathname();
   useEffect(() => { void SystemUI.setBackgroundColorAsync(Colors.background).catch(() => undefined); }, [resolvedTheme]);
   useEffect(() => {
     if (loading || !ready) return;
     if (!session) { if (!['/welcome', '/auth', '/legal', '/email-pending', '/auth-callback', '/'].includes(pathname)) router.replace('/welcome'); return; }
     if (!profileComplete) { if (pathname !== '/profile-setup' && pathname !== '/legal') router.replace('/profile-setup'); return; }
-    if (!vehicles.length) { if (!['/vehicle-form', '/vehicle-suggestion', '/legal'].includes(pathname)) router.replace('/vehicle-form?setup=1'); return; }
     if (['/', '/welcome', '/auth', '/profile-setup'].includes(pathname)) router.replace('/(tabs)');
-  }, [session, loading, ready, profileComplete, vehicles.length, pathname]);
+  }, [session, loading, ready, profileComplete, pathname]);
   return <><StatusBar style={resolvedTheme === 'light' ? 'dark' : 'light'} />
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background }, animation: reduceMotion ? 'none' : 'fade' }}>
       <Stack.Screen name="index" /><Stack.Screen name="welcome" /><Stack.Screen name="auth" /><Stack.Screen name="email-pending" /><Stack.Screen name="auth-callback" /><Stack.Screen name="legal" /><Stack.Screen name="profile-setup" /><Stack.Screen name="vehicle-form" /><Stack.Screen name="vehicle-suggestion" /><Stack.Screen name="service-form" /><Stack.Screen name="odometer" /><Stack.Screen name="share-ride" /><Stack.Screen name="shared-route" /><Stack.Screen name="edit-profile" /><Stack.Screen name="contact-form" /><Stack.Screen name="settings" />
